@@ -4,14 +4,20 @@ const {
   getProducts, 
   getProductById, 
   getPromotionalProducts,
-  createProduct 
+  createProduct,
+  updateProduct // Newly imported controller
 } = require('../controllers/productController');
 
 const router = express.Router();
 
 // Routes definitions
-router.route('/').get(getProducts).post(createProduct);
+// Secured the POST route with protect and admin middlewares
+router.route('/').get(getProducts).post(protect, admin, createProduct);
 router.route('/promotions/deals').get(getPromotionalProducts);
-router.route('/:id').get(getProductById);
+
+// Chained the new PUT method to the /:id route for editing
+router.route('/:id')
+  .get(getProductById)
+  .put(protect, admin, updateProduct);
 
 module.exports = router;

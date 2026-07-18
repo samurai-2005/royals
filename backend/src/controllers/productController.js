@@ -86,9 +86,39 @@ const createProduct = async (req, res) => {
   }
 };
 
+// @desc    Update a product (Admin Edit Mechanism)
+// @route   PUT /api/products/:id
+const updateProduct = async (req, res) => {
+  try {
+    const { name, price, description, images, mainGroup, subGroup } = req.body;
+    
+    // Find the product by the ID passed in the URL
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      // Update fields with new data from the frontend form
+      product.name = name;
+      product.price = price;
+      product.description = description;
+      product.images = images; 
+      product.mainGroup = mainGroup;
+      product.subGroup = subGroup;
+
+      // Save the updated document back to the database
+      const updatedProduct = await product.save();
+      res.json(updatedProduct);
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getProducts,
   getProductById,
   getPromotionalProducts,
-  createProduct
+  createProduct,
+  updateProduct 
 };

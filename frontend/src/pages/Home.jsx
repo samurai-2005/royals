@@ -1,75 +1,69 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { FiShield, FiBriefcase, FiStar, FiNavigation } from 'react-icons/fi';
 
 const Home = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Data for the top Job Uniforms section
+  const uniforms = [
+    { name: "NCC Uniforms", path: "/category/ncc", icon: <FiStar size={28} /> },
+    { name: "Bihar Police", path: "/category/bihar-police", icon: <FiShield size={28} /> },
+    { name: "Security Guard", path: "/category/security", icon: <FiBriefcase size={28} /> },
+    { name: "Indian Army", path: "/category/army", icon: <FiNavigation size={28} /> }
+  ];
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
-        setProducts(data);
-      } catch (error) {
-        console.error("Error fetching products", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
-
-  if (loading) {
-    return <div className="p-8 text-zinc-400 flex justify-center items-center h-full">Loading catalog...</div>;
-  }
+  // Data for the bottom Clothes/Apparel section
+  const clothes = [
+    { name: "Shirts", path: "/category/shirts" },
+    { name: "T-Shirts", path: "/category/tshirts" },
+    { name: "Trousers", path: "/category/trousers" },
+    { name: "Pants", path: "/category/pants" },
+    { name: "Accessories", path: "/category/accessories" }
+  ];
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-white mb-6">Featured Catalog</h1>
+    <div className="p-5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
       
-      {products.length === 0 ? (
-        <p className="text-zinc-500">No products available yet. Admin needs to upload inventory!</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map(product => (
-            <div key={product._id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden flex flex-col hover:border-zinc-600 transition-colors">
-              
-              {/* Product Image Area */}
-              <div className="h-56 bg-[#18181b] flex items-center justify-center overflow-hidden">
-                {product.images && product.images.length > 0 ? (
-                  <img 
-                    src={`http://localhost:5000${product.images[0]}`} 
-                    alt={product.name} 
-                    className="object-cover h-full w-full" 
-                  />
-                ) : (
-                  <span className="text-zinc-600 text-sm">No Image</span>
-                )}
+      {/* 1. UNIFORMS SECTION */}
+      <div className="mb-10">
+        <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Job Uniforms</h2>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {uniforms.map((u, index) => (
+            <Link 
+              key={index} 
+              to={u.path} 
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center hover:border-zinc-500 hover:bg-zinc-800 transition-all text-center group"
+            >
+              <div className="text-zinc-500 group-hover:text-white transition-colors mb-4">
+                {u.icon}
               </div>
-              
-              {/* Product Info */}
-              <div className="p-4 flex flex-col flex-grow">
-                <h3 className="text-lg font-bold text-white mb-1 truncate" title={product.name}>
-                  {product.name}
-                </h3>
-                <p className="text-xs text-zinc-500 mb-3 uppercase tracking-wider font-semibold">
-                  {product.mainGroup} - {product.subGroup}
-                </p>
-                <div className="mt-auto flex items-center justify-between">
-                  <p className="text-xl font-bold text-white">Rs {product.price}</p>
-                  <Link 
-                    to={`/product/${product._id}`} 
-                    className="bg-white text-black text-xs font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors"
-                  >
-                    View
-                  </Link>
-                </div>
-              </div>
-            </div>
+              <span className="text-white font-bold text-sm md:text-base">
+                {u.name}
+              </span>
+            </Link>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* 2. CLOTHES SECTION */}
+      <div>
+        <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Clothes & Components</h2>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {clothes.map((c, index) => (
+            <Link 
+              key={index} 
+              to={c.path} 
+              className="bg-[#18181b] border border-zinc-800 rounded-lg p-5 flex items-center justify-center hover:border-zinc-500 transition-colors"
+            >
+              <span className="text-zinc-400 font-semibold text-sm">
+                {c.name}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 };
