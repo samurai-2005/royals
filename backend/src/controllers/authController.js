@@ -22,6 +22,7 @@ const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Added missing field
         token: generateToken(user._id),
       });
     } else {
@@ -46,6 +47,7 @@ const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Added missing field
         token: generateToken(user._id),
       });
     } else {

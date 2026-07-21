@@ -8,6 +8,12 @@ import { FiBell } from 'react-icons/fi';
 const MainLayout = () => {
   const location = useLocation();
 
+  // Check the current URL to conditionally hide the right sidebar
+  const hideRightSidebar = 
+    location.pathname.startsWith('/profile') || 
+    location.pathname.startsWith('/user-profile') || 
+    location.pathname.startsWith('/checkout');
+
   // Helper function to extract and format the current page for the center indicator
   const getPageTitle = () => {
     const path = location.pathname;
@@ -20,6 +26,7 @@ const MainLayout = () => {
     if (path === '/user-profile') return 'My Profile';
     if (path === '/settings') return 'Settings';
     if (path === '/profile') return 'Merchant Hub';
+    if (path === '/checkout') return 'Checkout';
     return '';
   };
 
@@ -63,9 +70,12 @@ const MainLayout = () => {
           <Outlet /> 
         </main>
 
-        <div className="hidden lg:block">
-          <RightSidebar />
-        </div>
+        {/* Conditionally render the Right Sidebar */}
+        {!hideRightSidebar && (
+          <div className="hidden lg:block">
+            <RightSidebar />
+          </div>
+        )}
         
       </div>
 

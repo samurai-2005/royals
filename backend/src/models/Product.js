@@ -5,6 +5,8 @@ const productSchema = new mongoose.Schema({
   description: { type: String, required: true },
   price: { type: Number, required: true },
   images: [{ type: String }], // Optional for now, in case you don't have URLs yet
+  discountPrice: { type: Number, default: 0 },
+  discountPercentage: { type: Number, default: 0 },
   
   // The Hierarchical Categorization
   mainGroup: { 

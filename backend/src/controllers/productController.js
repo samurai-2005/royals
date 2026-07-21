@@ -60,7 +60,8 @@ const createProduct = async (req, res) => {
       subGroup, 
       images, 
       isPromotional, 
-      discountPrice 
+      discountPrice,
+      discountPercentage // Added field to support discounts on creation
     } = req.body;
 
     // Validate that the required mainGroup is provided
@@ -76,7 +77,8 @@ const createProduct = async (req, res) => {
       subGroup: subGroup || 'Unassigned', // Graceful fallback for your current data
       images: images || [],
       isPromotional: isPromotional || false,
-      discountPrice: discountPrice || 0
+      discountPrice: discountPrice || 0,
+      discountPercentage: discountPercentage || 0
     });
 
     const createdProduct = await product.save();
@@ -90,19 +92,33 @@ const createProduct = async (req, res) => {
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res) => {
   try {
-    const { name, price, description, images, mainGroup, subGroup } = req.body;
+    // Destructure the new discount fields from the frontend payload
+    const { 
+      name, 
+      price, 
+      description, 
+      images, 
+      mainGroup, 
+      subGroup, 
+      discountPrice, 
+      discountPercentage 
+    } = req.body;
     
     // Find the product by the ID passed in the URL
     const product = await Product.findById(req.params.id);
 
     if (product) {
-      // Update fields with new data from the frontend form
-      product.name = name;
-      product.price = price;
-      product.description = description;
-      product.images = images; 
-      product.mainGroup = mainGroup;
-      product.subGroup = subGroup;
+      // Update fields with new data from the frontend form, fallback to existing if undefined
+      product.name = name || product.name;
+      product.price = price || product.price;
+      product.description = description || product.description;
+      product.images = images || product.images; 
+      product.mainGroup = mainGroup || product.mainGroup;
+      product.subGroup = subGroup || product.subGroup;
+      
+      // Explicitly tell the backend to update the discount fields
+      if (discountPrice !== undefined) product.discountPrice = discountPrice;
+      if (discountPercentage !== undefined) product.discountPercentage = discountPercentage;
 
       // Save the updated document back to the database
       const updatedProduct = await product.save();

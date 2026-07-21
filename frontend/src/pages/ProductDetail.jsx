@@ -12,12 +12,10 @@ const ProductDetail = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Selection States
   const [size, setSize] = useState('M'); 
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
-  // Delivery Check States
   const [pincode, setPincode] = useState('');
   const [deliveryInfo, setDeliveryInfo] = useState(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
@@ -39,13 +37,13 @@ const ProductDetail = () => {
   }, [id]);
 
   const handleAddToCart = () => {
-    addToCart(product, size, qty);
+    // Determine the active price to add to cart
+    const activePrice = product.discountPercentage > 0 ? product.discountPrice : product.price;
+    addToCart({ ...product, price: activePrice }, size, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
-  // --- MOCK LOGISTICS API CALL ---
-  // In the future, this will be: await axios.post('/api/shipping/check', { pincode })
   const handlePincodeCheck = () => {
     if (pincode.length !== 6) {
       setDeliveryInfo({ error: "Please enter a valid 6-digit PIN code." });
@@ -55,13 +53,10 @@ const ProductDetail = () => {
     setCheckingPincode(true);
     setDeliveryInfo(null);
 
-    // Simulate a network request delay
     setTimeout(() => {
-      // Create a mock delivery date
       const today = new Date();
-      let deliveryDays = 5; // Default to 5 days
+      let deliveryDays = 5; 
 
-      // Example local routing logic: Fast delivery for Patna (800xxx) and surrounding areas
       if (pincode.startsWith('800') || pincode.startsWith('801')) {
         deliveryDays = 2;
       }
@@ -70,7 +65,6 @@ const ProductDetail = () => {
       const options = { weekday: 'short', month: 'short', day: 'numeric' };
       const formattedDate = today.toLocaleDateString('en-IN', options);
 
-      // Simulate a 5% chance the location is completely unserviceable
       if (Math.random() < 0.05) {
         setDeliveryInfo({ error: "Currently, our logistics partners do not deliver to this location." });
       } else {
@@ -103,9 +97,16 @@ const ProductDetail = () => {
         <FiArrowLeft className="mr-2" /> Back
       </button>
 
-      {/* Product Image Section */}
       <div className="w-full md:w-1/2 flex-shrink-0">
         <div className="bg-[#18181b] rounded-2xl border border-zinc-800 overflow-hidden aspect-square flex items-center justify-center relative">
+          
+          {/* Sale Badge */}
+          {product.discountPercentage > 0 && (
+            <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg z-10 shadow-lg tracking-wider">
+              {product.discountPercentage}% OFF
+            </div>
+          )}
+
           {product.images && product.images.length > 0 ? (
             <img 
               src={`http://localhost:5000${product.images[0]}`} 
@@ -118,7 +119,6 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      {/* Product Information Section */}
       <div className="w-full md:w-1/2 flex flex-col">
         
         <div className="flex items-center space-x-2 mb-3">
@@ -134,11 +134,18 @@ const ProductDetail = () => {
           {product.name}
         </h1>
         
-        <p className="text-2xl font-bold text-white mb-6">
-          Rs {product.price}
-        </p>
+        {/* Price Display Block */}
+        <div className="flex items-center gap-3 mb-6">
+          {product.discountPercentage > 0 ? (
+            <>
+              <span className="text-3xl font-black text-white">Rs {product.discountPrice}</span>
+              <span className="text-xl font-bold text-zinc-500 line-through">Rs {product.price}</span>
+            </>
+          ) : (
+            <span className="text-3xl font-black text-white">Rs {product.price}</span>
+          )}
+        </div>
 
-        {/* Delivery / Pincode Checker */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-6">
           <div className="flex items-center text-white font-bold mb-3">
             <FiMapPin className="mr-2 text-zinc-400" /> 
@@ -149,7 +156,7 @@ const ProductDetail = () => {
               type="text" 
               maxLength="6"
               value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))} // Only allow numbers
+              onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))} 
               placeholder="Enter 6-digit Pincode (e.g. 800001)" 
               className="flex-1 bg-[#18181b] border border-zinc-700 rounded px-4 py-2 text-sm text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
@@ -162,7 +169,6 @@ const ProductDetail = () => {
             </button>
           </div>
 
-          {/* Delivery Response Messages */}
           {deliveryInfo?.error && (
             <p className="text-red-400 text-xs mt-3 font-semibold">{deliveryInfo.error}</p>
           )}
@@ -178,7 +184,6 @@ const ProductDetail = () => {
           {product.description}
         </p>
 
-        {/* Size Selector */}
         <div className="mb-8">
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Select Size</h3>
@@ -201,7 +206,6 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Quantity & Add to Cart Row */}
         <div className="flex space-x-4 mb-8">
           <div className="flex items-center bg-[#18181b] border border-zinc-700 rounded-lg">
             <button 

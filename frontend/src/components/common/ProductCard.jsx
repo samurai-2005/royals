@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom';
 const ProductCard = ({ product }) => {
   // Fallback image if you haven't uploaded images to the database yet
   const defaultImage = "https://via.placeholder.com/300x400/27272a/ffffff?text=No+Image";
-  const displayImage = product.images && product.images.length > 0 ? product.images[0] : defaultImage;
+  
+  // ADDED 'http://localhost:5000' PREFIX HERE
+  const displayImage = product.images && product.images.length > 0 
+    ? `http://localhost:5000${product.images[0]}` 
+    : defaultImage;
 
   return (
     <div className="bg-[#18181b] rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-colors group">

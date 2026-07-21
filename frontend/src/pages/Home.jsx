@@ -3,7 +3,6 @@ import { FiShield, FiBriefcase, FiStar, FiNavigation } from 'react-icons/fi';
 
 const Home = () => {
   
-  // Data for the top Job Uniforms section
   const uniforms = [
     { name: "NCC Uniforms", path: "/category/ncc", icon: <FiStar size={28} /> },
     { name: "Bihar Police", path: "/category/bihar-police", icon: <FiShield size={28} /> },
@@ -11,7 +10,6 @@ const Home = () => {
     { name: "Indian Army", path: "/category/army", icon: <FiNavigation size={28} /> }
   ];
 
-  // Data for the bottom Clothes/Apparel section
   const clothes = [
     { name: "Shirts", path: "/category/shirts" },
     { name: "T-Shirts", path: "/category/tshirts" },
@@ -23,7 +21,6 @@ const Home = () => {
   return (
     <div className="p-5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
       
-      {/* 1. UNIFORMS SECTION */}
       <div className="mb-10">
         <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Job Uniforms</h2>
         
@@ -45,7 +42,6 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 2. CLOTHES SECTION */}
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Clothes & Components</h2>
         
