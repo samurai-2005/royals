@@ -13,14 +13,19 @@ const BulkOrder = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        // CORRECTED: Added template literal syntax and point to the correct endpoint
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
         
-        // Filter the products for active deals just like Deals.jsx
-        const discountedDeals = data.filter(product => product.discountPercentage > 0);
-        setDeals(discountedDeals);
+        // BULLETPROOF CHECK: Ensure the backend actually returned an array before filtering
+        if (Array.isArray(data)) {
+          const discountedDeals = data.filter(product => product?.discountPercentage > 0);
+          setDeals(discountedDeals);
+        } else {
+          console.warn("Backend did not return an array of products.", data);
+          setDeals([]); // Fallback to empty array
+        }
       } catch (error) {
         console.error("Failed to fetch promotional deals", error);
+        setDeals([]); // Fallback to empty array on failure
       } finally {
         setLoading(false);
       }
@@ -86,7 +91,8 @@ const BulkOrder = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((step, index) => (
+          {/* BULLETPROOF CHECK: Ensure steps is an array before mapping */}
+          {Array.isArray(steps) && steps.map((step, index) => (
             <div key={index} className="bg-[#18181b] border border-zinc-800 p-8 rounded-2xl hover:border-zinc-500 transition-colors relative group">
               <div className="w-16 h-16 bg-zinc-900 border border-zinc-700 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 {step.icon}
@@ -130,13 +136,14 @@ const BulkOrder = () => {
 
         {loading ? (
           <div className="flex justify-center py-10 text-zinc-500">Loading active deals...</div>
-        ) : deals.length === 0 ? (
+        ) : !Array.isArray(deals) || deals.length === 0 ? (
           <div className="text-center py-10 text-zinc-500 bg-[#18181b] border border-zinc-800 rounded-xl">
             No active promotional sales at the moment. Call us for custom bulk discounts!
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {deals.map(product => (
+            {/* BULLETPROOF CHECK: Ensure deals is an array before mapping */}
+            {Array.isArray(deals) && deals.map(product => (
               <ProductCard key={product._id} product={product} />
             ))}
           </div>
