@@ -30,6 +30,13 @@ app.use('/api/upload', uploadRoutes); //[cite: 3]
 // MOUNT THE NEW USER ROUTES
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ 
+    status: 'Healthy', 
+    uptime: process.uptime(),
+    timestamp: new Date() 
+  });
+});
 
 // Make the uploads folder statically accessible to the browser
 // This is crucial for rendering uploaded product images in your frontend
