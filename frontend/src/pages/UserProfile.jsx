@@ -36,7 +36,8 @@ const UserProfile = () => {
         setLoadingOrders(true);
         try {
           const config = { headers: { Authorization: `Bearer ${user.token}` } };
-          const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/orders/myorders', config);
+          // CORRECTED: Added backticks and ${}
+          const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders/myorders`, config);
           setOrders(data);
         } catch (error) {
           console.error("Failed to fetch orders", error);
@@ -64,14 +65,16 @@ const UserProfile = () => {
       fileData.append('image', file);
       
       const uploadConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
-      const { data: imagePath } = await axios.post('import.meta.env.VITE_BACKEND_URL/api/upload', fileData, uploadConfig);
+      // CORRECTED: Added backticks and ${}
+      const { data: imagePath } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/upload`, fileData, uploadConfig);
 
       const userConfig = {
         headers: { Authorization: `Bearer ${user.token}` }
       };
       
+      // CORRECTED: Added backticks and ${}
       const { data: updatedUser } = await axios.put(
-        'import.meta.env.VITE_BACKEND_URL/api/users/profile', 
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, 
         { profilePicture: imagePath }, 
         userConfig
       );
@@ -232,7 +235,8 @@ const UserProfile = () => {
           {uploading ? (
             <FiLoader size={24} className="text-white animate-spin" />
           ) : user.profilePicture ? (
-            <img src={`import.meta.env.VITE_BACKEND_URL${user.profilePicture}`} alt="Avatar" className="w-full h-full object-cover" />
+            
+            <img src={`${import.meta.env.VITE_BACKEND_URL}${user.profilePicture}`} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <FiUser size={32} className="text-zinc-400" />
           )}

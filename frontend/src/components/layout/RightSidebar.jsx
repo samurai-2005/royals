@@ -56,7 +56,7 @@ const RightSidebar = () => {
               {/* Image */}
               {discountedProducts[currentIndex].images?.length > 0 ? (
                 <img 
-                  src={`import.meta.env.VITE_BACKEND_URL${discountedProducts[currentIndex].images[0]}`}
+                 src={`${import.meta.env.VITE_BACKEND_URL}${discountedProducts[currentIndex].images[0]}`}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                   alt="deal"
                 />

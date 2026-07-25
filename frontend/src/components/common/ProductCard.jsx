@@ -5,7 +5,7 @@ const ProductCard = ({ product }) => {
   const defaultImage = "https://via.placeholder.com/300x400/27272a/ffffff?text=No+Image";
   
   const displayImage = product.images && product.images.length > 0 
-    ? `import.meta.env.VITE_BACKEND_URL${product.images[0]}` 
+    ? `${import.meta.env.VITE_BACKEND_URL}${product.images[0]}` 
     : defaultImage;
 
   // Added fallbacks to 0 in case the database hasn't processed ratings yet

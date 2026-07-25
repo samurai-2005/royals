@@ -51,7 +51,8 @@ const Deals = () => {
               <div className="aspect-square bg-zinc-900 overflow-hidden relative">
                 {product.images && product.images.length > 0 ? (
                   <img 
-                    src={`import.meta.env.VITE_BACKEND_URL${product.images[0]}`} 
+                    // CORRECTED: Added ${} around the environment variable
+                    src={`${import.meta.env.VITE_BACKEND_URL}${product.images[0]}`} 
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
