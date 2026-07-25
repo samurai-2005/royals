@@ -13,8 +13,12 @@ const BulkOrder = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products/promotions/deals');
-        setDeals(data);
+        // CORRECTED: Added template literal syntax and point to the correct endpoint
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
+        
+        // Filter the products for active deals just like Deals.jsx
+        const discountedDeals = data.filter(product => product.discountPercentage > 0);
+        setDeals(discountedDeals);
       } catch (error) {
         console.error("Failed to fetch promotional deals", error);
       } finally {

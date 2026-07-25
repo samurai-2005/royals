@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiShield, FiBriefcase, FiStar, FiNavigation } from 'react-icons/fi';
+import { FiShield, FiBriefcase, FiStar, FiNavigation, FiPhoneCall } from 'react-icons/fi';
 
 const Home = () => {
   
@@ -21,6 +21,16 @@ const Home = () => {
   return (
     <div className="p-5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
       
+      {/* NEW: Mobile-Only Bulk Order Button */}
+      <div className="md:hidden mb-8">
+        <Link 
+          to="/bulk-order" 
+          className="w-full bg-white text-black font-black py-4 rounded-xl shadow-lg flex items-center justify-center transition-colors active:bg-zinc-200"
+        >
+          <FiPhoneCall className="mr-2" size={18} /> Bulk / Uniform Enquiry
+        </Link>
+      </div>
+
       <div className="mb-10">
         <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Job Uniforms</h2>
         
