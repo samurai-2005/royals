@@ -20,8 +20,13 @@ connectDB(); //[cite: 3]
 const app = express(); //[cite: 3]
 
 // Middlewares
-app.use(cors()); //[cite: 3]
-app.use(express.json()); // Parses incoming JSON payloads[cite: 3]
+app.use(cors({
+  origin: [
+    'http://localhost:5173', 
+    'https://royals-self.vercel.app'
+  ],
+  credentials: true
+}));app.use(express.json()); // Parses incoming JSON payloads[cite: 3]
 
 // Mount Routes
 app.use('/api/auth', authRoutes); //[cite: 3]
