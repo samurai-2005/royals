@@ -28,7 +28,8 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const { data } = await axios.get(`import.meta.env.VITE_BACKEND_URL/api/products/${id}`);
+        // CORRECTED: Added ${} around the environment variable
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
         setProduct(data);
         // NEW: Set the first image as active when the product loads
         if (data.images && data.images.length > 0) {
@@ -96,7 +97,8 @@ const ProductDetail = () => {
           
           {activeImage ? (
             <img 
-              src={`import.meta.env.VITE_BACKEND_URL${activeImage}`} 
+              // CORRECTED: Added ${} around the environment variable
+              src={`${import.meta.env.VITE_BACKEND_URL}${activeImage}`} 
               alt={product.name} 
               className="w-full h-full object-cover transition-opacity duration-300"
             />
@@ -116,7 +118,12 @@ const ProductDetail = () => {
                   activeImage === img ? 'border-white opacity-100' : 'border-zinc-800 opacity-50 hover:opacity-100'
                 }`}
               >
-                <img src={`import.meta.env.VITE_BACKEND_URL${img}`} alt={`Thumbnail ${index}`} className="w-full h-full object-cover" />
+                <img 
+                  // CORRECTED: Added ${} around the environment variable
+                  src={`${import.meta.env.VITE_BACKEND_URL}${img}`} 
+                  alt={`Thumbnail ${index}`} 
+                  className="w-full h-full object-cover" 
+                />
               </button>
             ))}
           </div>
