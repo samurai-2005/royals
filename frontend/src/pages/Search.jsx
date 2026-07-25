@@ -12,7 +12,7 @@ const Search = () => {
     const fetchAndFilterProducts = async () => {
       setLoading(true);
       try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
+        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
         
         // Frontend filtering: Checks if the keyword matches the product name, main group, or sub group
         const filtered = data.filter(p => 
@@ -60,7 +60,7 @@ const Search = () => {
               <div className="h-40 md:h-56 bg-[#18181b] flex items-center justify-center overflow-hidden">
                 {product.images && product.images.length > 0 ? (
                   <img 
-                    src={`http://localhost:5000${product.images[0]}`} 
+                    src={`import.meta.env.VITE_BACKEND_URL${product.images[0]}`} 
                     alt={product.name} 
                     className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-300" 
                   />

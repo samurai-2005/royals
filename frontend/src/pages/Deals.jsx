@@ -10,7 +10,7 @@ const Deals = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
+        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
         const discounted = data.filter(p => p.discountPercentage > 0);
         setDeals(discounted);
       } catch (error) {
@@ -51,7 +51,7 @@ const Deals = () => {
               <div className="aspect-square bg-zinc-900 overflow-hidden relative">
                 {product.images && product.images.length > 0 ? (
                   <img 
-                    src={`http://localhost:5000${product.images[0]}`} 
+                    src={`import.meta.env.VITE_BACKEND_URL${product.images[0]}`} 
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

@@ -18,7 +18,7 @@ const Category = () => {
         // We fetch all products for now, and filter on the frontend to accommodate 
         // both mainGroup (NCC) and subGroup (Shirts) searches easily.
         // As the app scales, we will push this filtering strictly to the backend API.
-        const response = await axios.get('http://localhost:5000/api/products');
+        const response = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
         
         // Format the URL param to match database strings (e.g., 'bihar-police' -> 'bihar police')
         const searchTerm = type.replace('-', ' ').toLowerCase();

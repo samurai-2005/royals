@@ -13,7 +13,7 @@ const RightSidebar = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
+        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
         const sales = data.filter(p => p.discountPercentage > 0);
         setDiscountedProducts(sales);
       } catch (error) {
@@ -56,7 +56,7 @@ const RightSidebar = () => {
               {/* Image */}
               {discountedProducts[currentIndex].images?.length > 0 ? (
                 <img 
-                  src={`http://localhost:5000${discountedProducts[currentIndex].images[0]}`}
+                  src={`import.meta.env.VITE_BACKEND_URL${discountedProducts[currentIndex].images[0]}`}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                   alt="deal"
                 />

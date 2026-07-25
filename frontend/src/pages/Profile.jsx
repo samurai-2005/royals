@@ -41,7 +41,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchInventory = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
+        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
         setProducts(data);
       } catch (error) {
         console.error("Failed to fetch inventory", error); 
@@ -53,7 +53,7 @@ const Profile = () => {
       
       try {
         const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-        const { data } = await axios.get('http://localhost:5000/api/orders', config);
+        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/orders', config);
         setOrders(data);
       } catch (error) {
         console.error("Failed to fetch orders", error);
@@ -79,7 +79,7 @@ const Profile = () => {
       const uploadPromises = files.map(file => {
         const fileData = new FormData();
         fileData.append('image', file);
-        return axios.post('http://localhost:5000/api/upload', fileData, config);
+        return axios.post('import.meta.env.VITE_BACKEND_URL/api/upload', fileData, config);
       });
 
       const responses = await Promise.all(uploadPromises);
@@ -128,10 +128,10 @@ const Profile = () => {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       let response;
       if (editingId) {
-        response = await axios.put(`http://localhost:5000/api/products/${editingId}`, formData, config);
+        response = await axios.put(`import.meta.env.VITE_BACKEND_URL/api/products/${editingId}`, formData, config);
         setStatus({ type: 'success', message: `Successfully updated: ${response.data.name}` });
       } else {
-        response = await axios.post('http://localhost:5000/api/products', formData, config);
+        response = await axios.post('import.meta.env.VITE_BACKEND_URL/api/products', formData, config);
         setStatus({ type: 'success', message: `Successfully created: ${response.data.name}` });
       }
       resetForm();
@@ -156,7 +156,7 @@ const Profile = () => {
         discountPrice: newDiscountPrice,
         discountPercentage: discountPercentage
       };
-      await axios.put(`http://localhost:5000/api/products/${product._id}`, payload, config);
+      await axios.put(`import.meta.env.VITE_BACKEND_URL/api/products/${product._id}`, payload, config);
       
       setProducts(products.map(p => 
         p._id === product._id ? { ...p, discountPrice: newDiscountPrice, discountPercentage } : p
@@ -170,7 +170,7 @@ const Profile = () => {
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      await axios.put(`http://localhost:5000/api/orders/${orderId}/status`, { status: newStatus }, config);
+      await axios.put(`import.meta.env.VITE_BACKEND_URL/api/orders/${orderId}/status`, { status: newStatus }, config);
       
       setOrders(orders.map(order => 
         order._id === orderId ? { ...order, status: newStatus } : order
@@ -267,7 +267,7 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded overflow-hidden flex items-center justify-center border border-zinc-700">
                              {p.images && p.images.length > 0 ? (
-                               <img src={`http://localhost:5000${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
+                               <img src={`import.meta.env.VITE_BACKEND_URL${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
                              ) : (
                                <FiImage className="text-zinc-600" />
                              )}
@@ -327,7 +327,7 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
                             {p.images && p.images.length > 0 ? (
-                              <img src={`http://localhost:5000${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
+                              <img src={`import.meta.env.VITE_BACKEND_URL${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
                             ) : (
                               <FiImage className="text-zinc-600 w-full h-full p-2" />
                             )}
@@ -477,7 +477,7 @@ const Profile = () => {
                           <div key={index} className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
                             <div className="flex items-center space-x-4">
                               <div className="w-16 h-16 bg-zinc-800 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
-                                <img src={`http://localhost:5000${item.image}`} className="w-full h-full object-cover" alt="product"/>
+                                <img src={`import.meta.env.VITE_BACKEND_URL${item.image}`} className="w-full h-full object-cover" alt="product"/>
                               </div>
                               <div>
                                 <p className="text-white font-bold">{item.name}</p>
@@ -591,7 +591,7 @@ const Profile = () => {
                   <div className="grid grid-cols-4 gap-4 mt-4">
                     {formData.images.map((img, index) => (
                       <div key={index} className="relative group aspect-square bg-zinc-900 rounded border border-zinc-700 overflow-hidden">
-                        <img src={`http://localhost:5000${img}`} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                        <img src={`import.meta.env.VITE_BACKEND_URL${img}`} alt={`Preview ${index}`} className="w-full h-full object-cover" />
                         <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-lg" title="Remove Image"><FiTrash2 size={12} /></button>
                       </div>
                     ))}

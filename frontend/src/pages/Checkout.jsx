@@ -75,7 +75,7 @@ const Checkout = () => {
         totalPrice,
       };
 
-      await axios.post('http://localhost:5000/api/orders', payload, config);
+      await axios.post('import.meta.env.VITE_BACKEND_URL/api/orders', payload, config);
       
       // Order Success! Clear the cart and redirect to the user's order history
       clearCart();
@@ -155,7 +155,7 @@ const Checkout = () => {
                 <div key={index} className="flex justify-between items-center bg-zinc-900 p-3 rounded border border-zinc-800/50">
                   <div className="flex items-center space-x-3 truncate">
                     <div className="w-12 h-12 bg-zinc-800 rounded flex-shrink-0">
-                      {item.images && <img src={`http://localhost:5000${item.images[0]}`} className="w-full h-full object-cover rounded" alt="thumb"/>}
+                      {item.images && <img src={`import.meta.env.VITE_BACKEND_URL${item.images[0]}`} className="w-full h-full object-cover rounded" alt="thumb"/>}
                     </div>
                     <div className="truncate">
                       <p className="text-sm text-white font-bold truncate">{item.name}</p>

@@ -13,8 +13,10 @@ import UserProfile from './pages/UserProfile';
 import Checkout from './pages/Checkout';
 import Deals from './pages/Deals';
 
-// Temporary placeholder components
-const BulkOrder = () => <div className="p-6 text-zinc-400">B2B Bulk Order / Uniform Enquiry Form (Coming Soon)</div>;
+// 1. Import the newly created BulkOrder component
+import BulkOrder from './pages/BulkOrder';
+
+// Temporary placeholder components (Removed the BulkOrder placeholder!)
 const Catalog = () => <div className="p-8"><h1 className="text-2xl font-bold mb-6">Full Catalog</h1></div>;
 
 function App() {
@@ -28,6 +30,8 @@ function App() {
             <Route path="search/:keyword" element={<Search />} />
             <Route path="category/:type" element={<Category />} />
             <Route path="product/:id" element={<ProductDetail />} />
+            
+            {/* 2. Your Left Sidebar button already triggers this exact route! */}
             <Route path="bulk-order" element={<BulkOrder />} />
             
             {/* App Navigation Routes */}

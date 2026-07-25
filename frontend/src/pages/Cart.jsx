@@ -30,7 +30,7 @@ const Cart = () => {
             
             <div className="w-20 h-20 bg-[#18181b] rounded-lg overflow-hidden shrink-0">
               {item.images && item.images.length > 0 ? (
-                <img src={`http://localhost:5000${item.images[0]}`} alt={item.name} className="w-full h-full object-cover" />
+                <img src={`import.meta.env.VITE_BACKEND_URL${item.images[0]}`} alt={item.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-700 text-xs font-bold">NO IMG</div>
               )}

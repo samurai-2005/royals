@@ -32,7 +32,7 @@ const Login = () => {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const { data } = await axios.post(`http://localhost:5000${endpoint}`, formData);
+      const { data } = await axios.post(`import.meta.env.VITE_BACKEND_URL${endpoint}`, formData);
       
       // Save the user data and secure token to localStorage
       localStorage.setItem('userInfo', JSON.stringify(data));

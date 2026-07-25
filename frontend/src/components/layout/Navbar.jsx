@@ -78,7 +78,7 @@ const Navbar = ({ toggleMenu }) => {
               title="My Profile"
             >
               {user.profilePicture ? (
-                <img src={`http://localhost:5000${user.profilePicture}`} alt={user.name} className="w-full h-full object-cover" />
+                <img src={`import.meta.env.VITE_BACKEND_URL${user.profilePicture}`} alt={user.name} className="w-full h-full object-cover" />
               ) : (
                 <FiUser className="text-white" />
               )}

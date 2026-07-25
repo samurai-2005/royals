@@ -5,7 +5,8 @@ const {
   getProductById, 
   getPromotionalProducts,
   createProduct,
-  updateProduct // Newly imported controller
+  updateProduct,
+  createProductReview // Newly imported review controller
 } = require('../controllers/productController');
 
 const router = express.Router();
@@ -14,6 +15,9 @@ const router = express.Router();
 // Secured the POST route with protect and admin middlewares
 router.route('/').get(getProducts).post(protect, admin, createProduct);
 router.route('/promotions/deals').get(getPromotionalProducts);
+
+// NEW: Route for handling product reviews
+router.route('/:id/reviews').post(protect, createProductReview);
 
 // Chained the new PUT method to the /:id route for editing
 router.route('/:id')

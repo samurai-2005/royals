@@ -7,12 +7,10 @@ const getProducts = async (req, res) => {
     const { mainGroup, subGroup } = req.query;
     let query = {};
     
-    // Case-insensitive filtering for the parent organization
     if (mainGroup) {
       query.mainGroup = { $regex: new RegExp(`^${mainGroup}$`, 'i') }; 
     }
     
-    // Case-insensitive filtering for the specific clothing type (for future use)
     if (subGroup) {
       query.subGroup = { $regex: new RegExp(`^${subGroup}$`, 'i') };
     }
@@ -24,7 +22,7 @@ const getProducts = async (req, res) => {
   }
 };
 
-// @desc    Get a single product by ID (Myntra-style detail page)
+// @desc    Get a single product by ID 
 // @route   GET /api/products/:id
 const getProductById = async (req, res) => {
   try {
@@ -36,11 +34,10 @@ const getProductById = async (req, res) => {
   }
 };
 
-// @desc    Get promotional / discounted products for the Right Sidebar
+// @desc    Get promotional / discounted products
 // @route   GET /api/products/promotions/deals
 const getPromotionalProducts = async (req, res) => {
   try {
-    // Only fetch promotional items that are actually in stock
     const deals = await Product.find({ isPromotional: true, inStock: true });
     res.json(deals);
   } catch (error) {
@@ -48,7 +45,7 @@ const getPromotionalProducts = async (req, res) => {
   }
 };
 
-// @desc    Create a new product (Admin Upload Mechanism)
+// @desc    Create a new product 
 // @route   POST /api/products
 const createProduct = async (req, res) => {
   try {
@@ -61,10 +58,9 @@ const createProduct = async (req, res) => {
       images, 
       isPromotional, 
       discountPrice,
-      discountPercentage // Added field to support discounts on creation
+      discountPercentage 
     } = req.body;
 
-    // Validate that the required mainGroup is provided
     if (!mainGroup) {
       return res.status(400).json({ message: 'mainGroup (e.g., NCC, Bihar Police) is required.' });
     }
@@ -74,7 +70,7 @@ const createProduct = async (req, res) => {
       description,
       price,
       mainGroup,
-      subGroup: subGroup || 'Unassigned', // Graceful fallback for your current data
+      subGroup: subGroup || 'Unassigned', 
       images: images || [],
       isPromotional: isPromotional || false,
       discountPrice: discountPrice || 0,
@@ -88,27 +84,17 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Update a product (Admin Edit Mechanism)
+// @desc    Update a product 
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res) => {
   try {
-    // Destructure the new discount fields from the frontend payload
     const { 
-      name, 
-      price, 
-      description, 
-      images, 
-      mainGroup, 
-      subGroup, 
-      discountPrice, 
-      discountPercentage 
+      name, price, description, images, mainGroup, subGroup, discountPrice, discountPercentage 
     } = req.body;
     
-    // Find the product by the ID passed in the URL
     const product = await Product.findById(req.params.id);
 
     if (product) {
-      // Update fields with new data from the frontend form, fallback to existing if undefined
       product.name = name || product.name;
       product.price = price || product.price;
       product.description = description || product.description;
@@ -116,13 +102,54 @@ const updateProduct = async (req, res) => {
       product.mainGroup = mainGroup || product.mainGroup;
       product.subGroup = subGroup || product.subGroup;
       
-      // Explicitly tell the backend to update the discount fields
       if (discountPrice !== undefined) product.discountPrice = discountPrice;
       if (discountPercentage !== undefined) product.discountPercentage = discountPercentage;
 
-      // Save the updated document back to the database
       const updatedProduct = await product.save();
       res.json(updatedProduct);
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// NEW: @desc    Create new product review
+// @route   POST /api/products/:id/reviews
+const createProductReview = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      // Check if the user has already reviewed this specific item
+      const alreadyReviewed = product.reviews.find(
+        (r) => r.user.toString() === req.user._id.toString()
+      );
+
+      if (alreadyReviewed) {
+        return res.status(400).json({ message: 'You have already reviewed this product' });
+      }
+
+      const review = {
+        name: req.user.name,
+        rating: Number(rating),
+        comment,
+        user: req.user._id, // Assumes you have an auth middleware attaching the user object
+      };
+
+      // Add the new review to the array
+      product.reviews.push(review);
+
+      // Recalculate total reviews and average rating
+      product.numReviews = product.reviews.length;
+      product.rating =
+        product.reviews.reduce((acc, item) => item.rating + acc, 0) /
+        product.reviews.length;
+
+      await product.save();
+      res.status(201).json({ message: 'Review added successfully' });
     } else {
       res.status(404).json({ message: 'Product not found' });
     }
@@ -136,5 +163,6 @@ module.exports = {
   getProductById,
   getPromotionalProducts,
   createProduct,
-  updateProduct 
+  updateProduct,
+  createProductReview // Do not forget to export the new function
 };
