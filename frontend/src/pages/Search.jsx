@@ -12,7 +12,7 @@ const Search = () => {
     const fetchAndFilterProducts = async () => {
       setLoading(true);
       try {
-        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
         
         // Frontend filtering: Checks if the keyword matches the product name, main group, or sub group
         const filtered = data.filter(p => 

@@ -10,7 +10,7 @@ const Deals = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
         const discounted = data.filter(p => p.discountPercentage > 0);
         setDeals(discounted);
       } catch (error) {

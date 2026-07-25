@@ -41,7 +41,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchInventory = async () => {
       try {
-        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
         setProducts(data);
       } catch (error) {
         console.error("Failed to fetch inventory", error); 

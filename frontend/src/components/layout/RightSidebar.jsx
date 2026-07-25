@@ -13,7 +13,7 @@ const RightSidebar = () => {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const { data } = await axios.get('import.meta.env.VITE_BACKEND_URL/api/products');
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
         const sales = data.filter(p => p.discountPercentage > 0);
         setDiscountedProducts(sales);
       } catch (error) {
