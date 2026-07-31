@@ -3,40 +3,43 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 
-
 const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
 const productRoutes = require('./src/routes/productRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
-// IMPORT THE NEW USER ROUTES
 const userRoutes = require('./src/routes/userRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const shiprocketRoutes = require('./src/routes/shiprocketRoutes');
 
 // Load environment variables
-dotenv.config(); //[cite: 3]
+dotenv.config();
 
 // Connect to Database
-connectDB(); //[cite: 3]
+connectDB();
 
-const app = express(); //[cite: 3]
+const app = express();
 
 // Middlewares
+// FIXED: set 'origin: true' so all Vercel preview URLs and localhost are permitted
 app.use(cors({
-  origin: [
-    'http://localhost:5173', 
-    'https://royals-self.vercel.app'
-  ],
+  origin: true,
   credentials: true
-}));app.use(express.json()); // Parses incoming JSON payloads[cite: 3]
+}));
+
+app.use(express.json()); // Parses incoming JSON payloads
 
 // Mount Routes
-app.use('/api/auth', authRoutes); //[cite: 3]
-app.use('/api/products', productRoutes); //[cite: 3]
-app.use('/api/upload', uploadRoutes); //[cite: 3]
-// MOUNT THE NEW USER ROUTES
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/shiprocket', shiprocketRoutes);
+
+// Make the uploads folder statically accessible
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Health check endpoints
 app.get('/healthz', (req, res) => {
   res.status(200).json({ 
     status: 'Healthy', 
@@ -45,18 +48,12 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-// Make the uploads folder statically accessible to the browser
-// This is crucial for rendering uploaded product images in your frontend
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); //[cite: 3]
-app.use('/api/shiprocket', shiprocketRoutes);
+app.get('/', (req, res) => {
+  res.send('The Royal Tailor API is running...');
+});
 
-// Health check endpoint
-app.get('/', (req, res) => { //[cite: 3]
-  res.send('The Royal Tailor API is running...'); //[cite: 3]
-}); //[cite: 3]
+const PORT = process.env.PORT || 5000;
 
-const PORT = process.env.PORT || 5000; //[cite: 3]
-
-app.listen(PORT, () => { //[cite: 3]
-  console.log(`Server running in mode on port ${PORT}`); //[cite: 3]
-}); //[cite: 3]
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
