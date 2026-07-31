@@ -13,16 +13,17 @@ import UserProfile from './pages/UserProfile';
 import Checkout from './pages/Checkout';
 import Deals from './pages/Deals';
 import BulkOrder from './pages/BulkOrder';
+import Catalog from './pages/Catalog';
 
-// 1. Import the real Catalog page component!
-import Catalog from './pages/Catalog'; 
+// Global PWA Install Banner Component
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 
 function App() {
   return (
     <CartProvider>
       <Router>
         <Routes>
-          {/* EVERYTHING goes back inside MainLayout to keep the Navbar & Left Sidebar */}
+          {/* Main Layout containing Navbar, Sidebars, and Bottom Navigation */}
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Home />} />
             <Route path="search/:keyword" element={<Search />} />
@@ -46,10 +47,13 @@ function App() {
             </Route>
           </Route>
           
-          {/* Login remains completely full-screen */}
+          {/* Full-screen Login */}
           <Route path="/login" element={<Login />} />
         </Routes>
       </Router>
+
+      {/* Renders the "Add to Home Screen" pop-up banner */}
+      <PWAInstallPrompt />
     </CartProvider>
   );
 }
