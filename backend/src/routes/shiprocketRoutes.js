@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.express.Router();
+const router = express.Router(); // Fixed: changed from express.express.Router()
 const { 
   checkServiceability, 
   createShiprocketOrder, 
@@ -11,7 +11,7 @@ const {
 // Open route for frontend Pincode checking
 router.post('/serviceability', checkServiceability);
 
-// Logistics Operations (Ideally protected by Admin middleware later)
+// Logistics Operations
 router.post('/create-order', createShiprocketOrder);
 router.post('/generate-awb', generateAWB);
 router.post('/generate-label', generateLabel);
