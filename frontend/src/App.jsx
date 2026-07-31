@@ -12,12 +12,10 @@ import Search from './pages/Search';
 import UserProfile from './pages/UserProfile';
 import Checkout from './pages/Checkout';
 import Deals from './pages/Deals';
-
-// 1. Import the newly created BulkOrder component
 import BulkOrder from './pages/BulkOrder';
 
-// Temporary placeholder components (Removed the BulkOrder placeholder!)
-const Catalog = () => <div className="p-8"><h1 className="text-2xl font-bold mb-6">Full Catalog</h1></div>;
+// 1. Import the real Catalog page component!
+import Catalog from './pages/Catalog'; 
 
 function App() {
   return (
@@ -31,7 +29,6 @@ function App() {
             <Route path="category/:type" element={<Category />} />
             <Route path="product/:id" element={<ProductDetail />} />
             
-            {/* 2. Your Left Sidebar button already triggers this exact route! */}
             <Route path="bulk-order" element={<BulkOrder />} />
             
             {/* App Navigation Routes */}
@@ -39,7 +36,7 @@ function App() {
             <Route path="deals" element={<Deals />} />
             <Route path="catalog" element={<Catalog />} />
             
-            {/* Workspace Routes (Right Sidebar will be hidden for these) */}
+            {/* Workspace Routes */}
             <Route path="checkout" element={<Checkout />} />
             <Route path="user-profile" element={<UserProfile />} />
             
