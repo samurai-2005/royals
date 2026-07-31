@@ -20,7 +20,6 @@ const UserProfile = () => {
   const [activeView, setActiveView] = useState('menu');
   const [uploading, setUploading] = useState(false);
   
-  // Real Order States
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   
@@ -29,14 +28,20 @@ const UserProfile = () => {
     userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null }
   );
 
-  // Fetch real orders when the "orders" tab is opened
+  // Helper for rendering image URLs safely
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
   useEffect(() => {
     if (activeView === 'orders' && user?.token) {
       const fetchMyOrders = async () => {
         setLoadingOrders(true);
         try {
           const config = { headers: { Authorization: `Bearer ${user.token}` } };
-          // CORRECTED: Added backticks and ${}
           const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders/myorders`, config);
           setOrders(data);
         } catch (error) {
@@ -54,7 +59,6 @@ const UserProfile = () => {
     navigate('/login');
   };
 
-  // Handle Profile Picture Upload
   const uploadProfilePicture = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -65,14 +69,9 @@ const UserProfile = () => {
       fileData.append('image', file);
       
       const uploadConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
-      // CORRECTED: Added backticks and ${}
       const { data: imagePath } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/upload`, fileData, uploadConfig);
 
-      const userConfig = {
-        headers: { Authorization: `Bearer ${user.token}` }
-      };
-      
-      // CORRECTED: Added backticks and ${}
+      const userConfig = { headers: { Authorization: `Bearer ${user.token}` } };
       const { data: updatedUser } = await axios.put(
         `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, 
         { profilePicture: imagePath }, 
@@ -160,28 +159,48 @@ const UserProfile = () => {
       ) : (
         <div className="space-y-4">
           {orders.map(order => (
-            <div key={order._id} className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <p className="text-white font-bold mb-1">#{order._id.substring(18).toUpperCase()}</p>
-                <p className="text-xs text-zinc-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                <div className="text-xs text-zinc-400 mt-2">
-                  {order.orderItems.map((item, index) => (
-                    <span key={index}>
-                      {item.name} (x{item.qty}){index < order.orderItems.length - 1 ? ', ' : ''}
-                    </span>
-                  ))}
+            <div key={order._id} className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 flex flex-col gap-4">
+              <div className="flex justify-between items-start border-b border-zinc-800/80 pb-3">
+                <div>
+                  <p className="text-white font-bold text-sm">#{order._id.substring(18).toUpperCase()}</p>
+                  <p className="text-xs text-zinc-500">{new Date(order.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-black text-sm">Rs {order.totalPrice}</p>
+                  <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded mt-1 ${
+                    order.status === 'Processing' ? 'bg-yellow-900/30 text-yellow-500 border border-yellow-900/50' :
+                    order.status === 'Shipped' ? 'bg-blue-900/30 text-blue-400 border border-blue-900/50' :
+                    order.status === 'Out for Delivery' ? 'bg-purple-900/30 text-purple-400 border border-purple-900/50' :
+                    'bg-green-900/30 text-green-400 border border-green-900/50'
+                  }`}>
+                    {order.status}
+                  </span>
                 </div>
               </div>
-              <div className="text-left md:text-right w-full md:w-auto flex flex-row md:flex-col justify-between items-center md:items-end">
-                <p className="text-white font-bold mb-1">Rs {order.totalPrice}</p>
-                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded mt-1 ${
-                  order.status === 'Processing' ? 'bg-yellow-900/30 text-yellow-500' :
-                  order.status === 'Shipped' ? 'bg-blue-900/30 text-blue-400' :
-                  order.status === 'Out for Delivery' ? 'bg-purple-900/30 text-purple-400' :
-                  'bg-green-900/30 text-green-400'
-                }`}>
-                  {order.status}
-                </span>
+
+              {/* Order Items with Image Thumbnails */}
+              <div className="space-y-3">
+                {order.orderItems.map((item, index) => {
+                  const imgUrl = getImageUrl(item.image);
+                  return (
+                    <div key={index} className="flex items-center justify-between gap-3 bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-zinc-900 rounded border border-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {imgUrl ? (
+                            <img src={imgUrl} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <FiPackage className="text-zinc-600" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs md:text-sm font-bold text-white">{item.name}</p>
+                          <p className="text-[11px] text-zinc-400">Size: {item.size} • Qty: {item.qty}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-zinc-300">Rs {item.price * item.qty}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -228,15 +247,12 @@ const UserProfile = () => {
         className="hidden" 
       />
 
-      {/* Profile Header */}
       <div className="flex items-center space-x-5 mb-8 md:mb-12">
         <div className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative overflow-hidden group">
-          
           {uploading ? (
             <FiLoader size={24} className="text-white animate-spin" />
           ) : user.profilePicture ? (
-            
-            <img src={`${import.meta.env.VITE_BACKEND_URL}${user.profilePicture}`} alt="Avatar" className="w-full h-full object-cover" />
+            <img src={getImageUrl(user.profilePicture)} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <FiUser size={32} className="text-zinc-400" />
           )}

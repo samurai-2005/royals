@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fi';
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState('inventory'); // inventory, form, orders, sales
+  const [activeTab, setActiveTab] = useState('inventory');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null); 
@@ -25,7 +25,6 @@ const Profile = () => {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
 
-  // NEW: State to handle Shiprocket interactions
   const [logistics, setLogistics] = useState({ loading: false, awb: null, labelUrl: null, error: null });
 
   const [editingId, setEditingId] = useState(null);
@@ -40,6 +39,14 @@ const Profile = () => {
 
   const navigate = useNavigate();
   const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+
+  // Universal Image Resolver
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -165,7 +172,8 @@ const Profile = () => {
         p._id === product._id ? { ...p, discountPrice: newDiscountPrice, discountPercentage } : p
       ));
       setStatus({ type: 'success', message: `Successfully updated discount for ${product.name}` });
-    } catch (error) {console.error("Discount update failed:", error); 
+    } catch (error) {
+      console.error("Discount update failed:", error); 
       setStatus({ type: 'error', message: 'Failed to update discount'});
     }
   };
@@ -188,16 +196,13 @@ const Profile = () => {
     }
   };
 
-  // NEW: Connected to Shiprocket API for Label & AWB Generation
   const handleGenerateLogistics = async (orderId) => {
     setLogistics({ loading: true, awb: null, labelUrl: null, error: null });
     try {
-      // 1. Generate AWB
       const awbRes = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/generate-awb`, {
         shiprocket_order_id: `mock_sr_${orderId}`
       });
       
-      // 2. Generate Label
       const labelRes = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/generate-label`, {
         shiprocket_shipment_ids: [123456] 
       });
@@ -296,7 +301,7 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded overflow-hidden flex items-center justify-center border border-zinc-700">
                              {p.images && p.images.length > 0 ? (
-                               <img src={`${import.meta.env.VITE_BACKEND_URL}${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
+                               <img src={getImageUrl(p.images[0])} className="w-full h-full object-cover" alt="thumb" />
                              ) : (
                                <FiImage className="text-zinc-600" />
                              )}
@@ -322,7 +327,6 @@ const Profile = () => {
           </div>
         )}
 
-        {/* --- SALES & DISCOUNTS TAB --- */}
         {activeTab === 'sales' && (
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-6">
@@ -356,7 +360,7 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
                             {p.images && p.images.length > 0 ? (
-                              <img src={`${import.meta.env.VITE_BACKEND_URL}${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
+                              <img src={getImageUrl(p.images[0])} className="w-full h-full object-cover" alt="thumb" />
                             ) : (
                               <FiImage className="text-zinc-600 w-full h-full p-2" />
                             )}
@@ -508,8 +512,12 @@ const Profile = () => {
                         {selectedOrder.orderItems.map((item, index) => (
                           <div key={index} className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
                             <div className="flex items-center space-x-4">
-                              <div className="w-16 h-16 bg-zinc-800 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
-                                <img src={`${import.meta.env.VITE_BACKEND_URL}${item.image}`} className="w-full h-full object-cover" alt="product"/>
+                              <div className="w-16 h-16 bg-zinc-800 rounded border border-zinc-700 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                {getImageUrl(item.image) ? (
+                                  <img src={getImageUrl(item.image)} className="w-full h-full object-cover" alt="product"/>
+                                ) : (
+                                  <FiPackage className="text-zinc-600" />
+                                )}
                               </div>
                               <div>
                                 <p className="text-white font-bold">{item.name}</p>
@@ -577,13 +585,11 @@ const Profile = () => {
                       </div>
                     </div>
 
-                    {/* NEW: Updated Logistics Hub */}
                     <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 shadow-lg">
                       <h2 className="text-lg font-bold text-white mb-4 flex items-center">
                         <FiTruck className="mr-2 text-zinc-400" /> Logistics Hub
                       </h2>
                       <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50 text-center">
-                        
                         {logistics.awb ? (
                           <div className="text-left space-y-4">
                             <div className="bg-black/50 p-3 rounded border border-zinc-800">
@@ -616,7 +622,6 @@ const Profile = () => {
                             </button>
                           </>
                         )}
-                        
                       </div>
                     </div>
 
@@ -651,7 +656,7 @@ const Profile = () => {
                   <div className="grid grid-cols-4 gap-4 mt-4">
                     {formData.images.map((img, index) => (
                       <div key={index} className="relative group aspect-square bg-zinc-900 rounded border border-zinc-700 overflow-hidden">
-                        <img src={`${import.meta.env.VITE_BACKEND_URL}${img}`} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(img)} alt={`Preview ${index}`} className="w-full h-full object-cover" />
                         <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-lg" title="Remove Image"><FiTrash2 size={12} /></button>
                       </div>
                     ))}
