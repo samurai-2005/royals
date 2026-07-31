@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 
+
 const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
 const productRoutes = require('./src/routes/productRoutes');
@@ -10,6 +11,7 @@ const uploadRoutes = require('./src/routes/uploadRoutes');
 // IMPORT THE NEW USER ROUTES
 const userRoutes = require('./src/routes/userRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
+const shiprocketRoutes = require('./src/routes/shiprocketRoutes');
 
 // Load environment variables
 dotenv.config(); //[cite: 3]
@@ -46,6 +48,7 @@ app.get('/healthz', (req, res) => {
 // Make the uploads folder statically accessible to the browser
 // This is crucial for rendering uploaded product images in your frontend
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); //[cite: 3]
+app.use('/api/shiprocket', shiprocketRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => { //[cite: 3]
