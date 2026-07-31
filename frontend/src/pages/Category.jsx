@@ -4,7 +4,10 @@ import axios from 'axios';
 import { FiEye } from 'react-icons/fi';
 
 const Category = () => {
-  const { name } = useParams();
+  // Extract both 'type' (from App.jsx) and 'name' as fallback
+  const params = useParams();
+  const categoryParam = params.type || params.name || '';
+
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,12 +24,18 @@ const Category = () => {
       setLoading(true);
       try {
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
-        // Filter by mainGroup or subGroup
-        const filtered = data.filter(
-          p => p.mainGroup?.toLowerCase() === name?.toLowerCase() || 
-               p.subGroup?.toLowerCase() === name?.toLowerCase()
-        );
-        setProducts(filtered);
+        
+        // If categoryParam is empty or 'all', show all items
+        if (!categoryParam || categoryParam.toLowerCase() === 'all') {
+          setProducts(data);
+        } else {
+          // Flexible filter matching mainGroup or subGroup
+          const filtered = data.filter(
+            p => p.mainGroup?.toLowerCase() === categoryParam.toLowerCase() || 
+                 p.subGroup?.toLowerCase() === categoryParam.toLowerCase()
+          );
+          setProducts(filtered);
+        }
       } catch (error) {
         console.error("Failed to fetch products", error);
       } finally {
@@ -34,7 +43,11 @@ const Category = () => {
       }
     };
     fetchCategoryProducts();
-  }, [name]);
+  }, [categoryParam]);
+
+  const displayTitle = categoryParam && categoryParam.toLowerCase() !== 'all' 
+    ? `${categoryParam} Collection` 
+    : 'All Uniforms';
 
   if (loading) {
     return <div className="p-8 text-center text-zinc-500">Loading catalog items...</div>;
@@ -43,7 +56,7 @@ const Category = () => {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto text-white pb-24">
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-black capitalize tracking-tight">{name} Collection</h1>
+        <h1 className="text-2xl md:text-3xl font-black capitalize tracking-tight">{displayTitle}</h1>
         <p className="text-xs md:text-sm text-zinc-400 mt-1">Showing {products.length} uniform items</p>
       </div>
 
@@ -52,7 +65,6 @@ const Category = () => {
           No products currently available under this category.
         </div>
       ) : (
-        /* Responsive 2-column mobile layout */
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6">
           {products.map((product) => {
             const rawImg = product.images && product.images.length > 0 ? product.images[0] : product.image;
@@ -65,7 +77,6 @@ const Category = () => {
                 onClick={() => navigate(`/product/${product._id}`)}
                 className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 transition-all cursor-pointer group shadow-md"
               >
-                {/* Compact Image Container */}
                 <div className="relative aspect-[4/5] bg-zinc-900 overflow-hidden flex items-center justify-center">
                   {product.discountPercentage > 0 && (
                     <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow">
@@ -84,7 +95,6 @@ const Category = () => {
                   )}
                 </div>
 
-                {/* Card Content */}
                 <div className="p-3 flex flex-col flex-1 justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1 truncate">
