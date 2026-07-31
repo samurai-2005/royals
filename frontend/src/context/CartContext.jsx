@@ -21,23 +21,32 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product, size, qty = 1) => {
     setCartItems((prevItems) => {
-      // Check if this exact product and size is already in the cart
       const existingItem = prevItems.find(
         (item) => item._id === product._id && item.size === size
       );
 
       if (existingItem) {
-        // If it exists, just update the quantity
         return prevItems.map((item) =>
           item._id === product._id && item.size === size
             ? { ...item, qty: item.qty + qty }
             : item
         );
       } else {
-        // Otherwise, add it as a new line item
         return [...prevItems, { ...product, size, qty }];
       }
     });
+  };
+
+  // ADDED: Quantity increment/decrement update handler
+  const updateQty = (productId, size, newQty) => {
+    if (newQty < 1) return;
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        item._id === productId && item.size === size
+          ? { ...item, qty: newQty }
+          : item
+      )
+    );
   };
 
   const removeFromCart = (productId, size) => {
@@ -54,7 +63,17 @@ export const CartProvider = ({ children }) => {
   const cartCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, clearCart, cartTotal, cartCount }}>
+    <CartContext.Provider 
+      value={{ 
+        cartItems, 
+        addToCart, 
+        updateQty, 
+        removeFromCart, 
+        clearCart, 
+        cartTotal, 
+        cartCount 
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

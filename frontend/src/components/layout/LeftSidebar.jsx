@@ -2,10 +2,22 @@ import { Link } from 'react-router-dom';
 
 const LeftSidebar = () => {
   const categories = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Accessories'];
-  const orgs = ['NCC', 'Bihar Police', 'Security Guard', 'Indian Army'];
+  // ADDED: 'School Uniforms' to organizations list
+  const orgs = ['School Uniforms', 'NCC', 'Bihar Police', 'Security Guard', 'Indian Army'];
 
   return (
     <div className="p-4 flex flex-col h-full">
+      
+      {/* ADDED: Full Catalog Directory Link for PC Users */}
+      <div className="mb-6">
+        <Link 
+          to="/catalog" 
+          className="flex items-center justify-center w-full bg-zinc-800 border border-zinc-700 text-white font-bold py-2.5 rounded-lg hover:bg-zinc-700 transition-colors text-xs tracking-wider uppercase shadow-sm"
+        >
+          📋 Uniform Directory
+        </Link>
+      </div>
+
       {/* Organization Filter */}
       <div className="mb-8">
         <h3 className="text-xs font-bold text-zinc-500 mb-4 uppercase tracking-wider">Organizations</h3>
