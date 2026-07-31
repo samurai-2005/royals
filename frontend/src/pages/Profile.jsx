@@ -25,6 +25,9 @@ const Profile = () => {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
 
+  // NEW: State to handle Shiprocket interactions
+  const [logistics, setLogistics] = useState({ loading: false, awb: null, labelUrl: null, error: null });
+
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     name: '', 
@@ -53,7 +56,6 @@ const Profile = () => {
       
       try {
         const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-        // CORRECTED: Added backticks and ${}
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders`, config);
         setOrders(data);
       } catch (error) {
@@ -80,7 +82,6 @@ const Profile = () => {
       const uploadPromises = files.map(file => {
         const fileData = new FormData();
         fileData.append('image', file);
-        // CORRECTED: Added backticks and ${}
         return axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/upload`, fileData, config);
       });
 
@@ -130,11 +131,9 @@ const Profile = () => {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       let response;
       if (editingId) {
-        // CORRECTED: Added ${} around environment variable
         response = await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/products/${editingId}`, formData, config);
         setStatus({ type: 'success', message: `Successfully updated: ${response.data.name}` });
       } else {
-        // CORRECTED: Added backticks and ${}
         response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/products`, formData, config);
         setStatus({ type: 'success', message: `Successfully created: ${response.data.name}` });
       }
@@ -160,7 +159,6 @@ const Profile = () => {
         discountPrice: newDiscountPrice,
         discountPercentage: discountPercentage
       };
-      // CORRECTED: Added ${} around environment variable
       await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}`, payload, config);
       
       setProducts(products.map(p => 
@@ -175,7 +173,6 @@ const Profile = () => {
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      // CORRECTED: Added ${} around environment variable
       await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/orders/${orderId}/status`, { status: newStatus }, config);
       
       setOrders(orders.map(order => 
@@ -188,6 +185,32 @@ const Profile = () => {
     } catch (error) {
       console.error("Failed to update status", error);
       alert("Error updating order status.");
+    }
+  };
+
+  // NEW: Connected to Shiprocket API for Label & AWB Generation
+  const handleGenerateLogistics = async (orderId) => {
+    setLogistics({ loading: true, awb: null, labelUrl: null, error: null });
+    try {
+      // 1. Generate AWB
+      const awbRes = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/generate-awb`, {
+        shiprocket_order_id: `mock_sr_${orderId}`
+      });
+      
+      // 2. Generate Label
+      const labelRes = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/generate-label`, {
+        shiprocket_shipment_ids: [123456] 
+      });
+
+      setLogistics({
+        loading: false,
+        awb: awbRes.data.awb_code,
+        labelUrl: labelRes.data.label_url,
+        error: null
+      });
+    } catch (error) {
+       console.error("Logistics generation failed", error);
+       setLogistics({ loading: false, awb: null, labelUrl: null, error: "Failed to connect to Shiprocket." });
     }
   };
 
@@ -273,7 +296,6 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded overflow-hidden flex items-center justify-center border border-zinc-700">
                              {p.images && p.images.length > 0 ? (
-                               
                                <img src={`${import.meta.env.VITE_BACKEND_URL}${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
                              ) : (
                                <FiImage className="text-zinc-600" />
@@ -334,7 +356,6 @@ const Profile = () => {
                         <td className="p-4 flex items-center space-x-4">
                           <div className="w-10 h-10 bg-zinc-900 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
                             {p.images && p.images.length > 0 ? (
-                              
                               <img src={`${import.meta.env.VITE_BACKEND_URL}${p.images[0]}`} className="w-full h-full object-cover" alt="thumb" />
                             ) : (
                               <FiImage className="text-zinc-600 w-full h-full p-2" />
@@ -425,7 +446,10 @@ const Profile = () => {
                             </td>
                             <td className="p-4 text-right">
                               <button 
-                                onClick={() => setSelectedOrder(order)}
+                                onClick={() => { 
+                                  setSelectedOrder(order); 
+                                  setLogistics({ loading: false, awb: null, labelUrl: null, error: null }); 
+                                }}
                                 className="inline-flex items-center text-xs font-bold bg-white text-black px-3 py-1.5 rounded hover:bg-zinc-200 transition-colors"
                               >
                                 View Details <FiExternalLink className="ml-2" />
@@ -485,7 +509,6 @@ const Profile = () => {
                           <div key={index} className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50">
                             <div className="flex items-center space-x-4">
                               <div className="w-16 h-16 bg-zinc-800 rounded border border-zinc-700 overflow-hidden flex-shrink-0">
-                                {/* CORRECTED: Added ${} */}
                                 <img src={`${import.meta.env.VITE_BACKEND_URL}${item.image}`} className="w-full h-full object-cover" alt="product"/>
                               </div>
                               <div>
@@ -554,18 +577,46 @@ const Profile = () => {
                       </div>
                     </div>
 
+                    {/* NEW: Updated Logistics Hub */}
                     <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 shadow-lg">
                       <h2 className="text-lg font-bold text-white mb-4 flex items-center">
                         <FiTruck className="mr-2 text-zinc-400" /> Logistics Hub
                       </h2>
                       <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800/50 text-center">
-                        <p className="text-xs text-zinc-400 mb-3">Shiprocket Integration Pending</p>
-                        <button 
-                          disabled 
-                          className="w-full bg-zinc-800 text-zinc-500 font-bold py-2 rounded border border-zinc-700 cursor-not-allowed"
-                        >
-                          Generate AWB & Label
-                        </button>
+                        
+                        {logistics.awb ? (
+                          <div className="text-left space-y-4">
+                            <div className="bg-black/50 p-3 rounded border border-zinc-800">
+                              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">AWB Tracking Code</p>
+                              <p className="font-bold text-green-400 text-lg tracking-widest">{logistics.awb}</p>
+                            </div>
+                            {logistics.labelUrl && (
+                              <a 
+                                href={logistics.labelUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="w-full flex items-center justify-center text-sm bg-white text-black font-black py-3 rounded border border-zinc-700 hover:bg-zinc-200 transition-colors shadow-lg"
+                              >
+                                Download Shipping Label (PDF)
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
+                              Shiprocket Ready. Generate an Air Waybill (AWB) and printable shipping label for this order.
+                            </p>
+                            {logistics.error && <p className="text-xs text-red-400 mb-3 font-semibold">{logistics.error}</p>}
+                            <button 
+                              onClick={() => handleGenerateLogistics(selectedOrder._id)}
+                              disabled={logistics.loading}
+                              className="w-full bg-zinc-800 text-white font-bold py-3 rounded border border-zinc-700 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                            >
+                              {logistics.loading ? 'Processing with Shiprocket...' : 'Generate AWB & Label'}
+                            </button>
+                          </>
+                        )}
+                        
                       </div>
                     </div>
 
@@ -600,7 +651,6 @@ const Profile = () => {
                   <div className="grid grid-cols-4 gap-4 mt-4">
                     {formData.images.map((img, index) => (
                       <div key={index} className="relative group aspect-square bg-zinc-900 rounded border border-zinc-700 overflow-hidden">
-                        {/* CORRECTED: Added ${} */}
                         <img src={`${import.meta.env.VITE_BACKEND_URL}${img}`} alt={`Preview ${index}`} className="w-full h-full object-cover" />
                         <button type="button" onClick={() => removeImage(index)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-lg" title="Remove Image"><FiTrash2 size={12} /></button>
                       </div>

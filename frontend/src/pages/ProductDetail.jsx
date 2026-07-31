@@ -11,8 +11,6 @@ const ProductDetail = () => {
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // NEW: State to track the currently active main image
   const [activeImage, setActiveImage] = useState(null);
   
   const [size, setSize] = useState('M'); 
@@ -28,10 +26,8 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        // CORRECTED: Added ${} around the environment variable
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
         setProduct(data);
-        // NEW: Set the first image as active when the product loads
         if (data.images && data.images.length > 0) {
           setActiveImage(data.images[0]);
         }
@@ -51,29 +47,44 @@ const ProductDetail = () => {
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const handlePincodeCheck = () => {
+  // NEW: Connected to Shiprocket Serviceability API
+  const handlePincodeCheck = async () => {
     if (pincode.length !== 6) {
       setDeliveryInfo({ error: "Please enter a valid 6-digit PIN code." });
       return;
     }
     setCheckingPincode(true);
     setDeliveryInfo(null);
-    setTimeout(() => {
-      const today = new Date();
-      let deliveryDays = 5; 
-      if (pincode.startsWith('800') || pincode.startsWith('801')) {
-        deliveryDays = 2;
-      }
-      today.setDate(today.getDate() + deliveryDays);
-      const options = { weekday: 'short', month: 'short', day: 'numeric' };
-      const formattedDate = today.toLocaleDateString('en-IN', options);
-      if (Math.random() < 0.05) {
-        setDeliveryInfo({ error: "Currently, our logistics partners do not deliver to this location." });
+    
+    try {
+      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/serviceability`, {
+        delivery_postcode: pincode
+      });
+
+      if (data.success && data.data && data.data.available_courier_companies.length > 0) {
+        // Grab the fastest/default courier from the array
+        const courier = data.data.available_courier_companies[0];
+        
+        const today = new Date();
+        today.setDate(today.getDate() + courier.estimated_delivery_days);
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        const formattedDate = today.toLocaleDateString('en-IN', options);
+        
+        setDeliveryInfo({ 
+          success: true, 
+          date: formattedDate, 
+          message: `Delivery available by ${formattedDate} via ${courier.courier_name}` 
+        });
       } else {
-        setDeliveryInfo({ success: true, date: formattedDate, message: `Delivery available by ${formattedDate}` });
+        setDeliveryInfo({ error: "Currently, our logistics partners do not deliver to this location." });
       }
-      setCheckingPincode(false);
-    }, 800);
+    // Add a console.error on line 82:
+} catch (err) {
+  console.error(err); // Now the 'err' variable is used!
+  setDeliveryInfo({ error: "Serviceability check failed. Please try again later." });
+}
+    
+    
   };
 
   if (loading) return <div className="flex justify-center items-center h-full text-zinc-400">Loading product data...</div>;
@@ -87,7 +98,6 @@ const ProductDetail = () => {
       </button>
 
       <div className="w-full md:w-1/2 flex-shrink-0 flex flex-col gap-4">
-        {/* Main Active Image Container */}
         <div className="bg-[#18181b] rounded-2xl border border-zinc-800 overflow-hidden aspect-square flex items-center justify-center relative shadow-lg">
           {product.discountPercentage > 0 && (
             <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg z-10 shadow-lg tracking-wider">
@@ -97,7 +107,6 @@ const ProductDetail = () => {
           
           {activeImage ? (
             <img 
-              // CORRECTED: Added ${} around the environment variable
               src={`${import.meta.env.VITE_BACKEND_URL}${activeImage}`} 
               alt={product.name} 
               className="w-full h-full object-cover transition-opacity duration-300"
@@ -107,7 +116,6 @@ const ProductDetail = () => {
           )}
         </div>
 
-        {/* Thumbnail Gallery Strip */}
         {product.images && product.images.length > 1 && (
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {product.images.map((img, index) => (
@@ -119,7 +127,6 @@ const ProductDetail = () => {
                 }`}
               >
                 <img 
-                  // CORRECTED: Added ${} around the environment variable
                   src={`${import.meta.env.VITE_BACKEND_URL}${img}`} 
                   alt={`Thumbnail ${index}`} 
                   className="w-full h-full object-cover" 
