@@ -1,221 +1,168 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import { FiShoppingBag, FiTruck } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
-import { FiArrowLeft, FiCheck, FiShoppingCart, FiMinus, FiPlus, FiMapPin, FiTruck } from 'react-icons/fi';
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { addToCart } = useCart();
-
   const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState(null);
-  
-  const [size, setSize] = useState('M'); 
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
-
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedSize, setSelectedSize] = useState('M');
   const [pincode, setPincode] = useState('');
-  const [deliveryInfo, setDeliveryInfo] = useState(null);
-  const [checkingPincode, setCheckingPincode] = useState(false);
+  const [pincodeStatus, setPincodeStatus] = useState(null);
 
-  const availableSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+  // Helper function to handle Cloudinary HTTPS links and fallback URLs
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return 'https://via.placeholder.com/500x500/18181b/ffffff?text=No+Image';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
         setProduct(data);
-        if (data.images && data.images.length > 0) {
-          setActiveImage(data.images[0]);
-        }
       } catch (error) {
-        console.error("Error fetching product details", error);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching product details:", error);
       }
     };
     fetchProduct();
   }, [id]);
 
-  const handleAddToCart = () => {
-    const activePrice = product.discountPercentage > 0 ? product.discountPrice : product.price;
-    addToCart({ ...product, price: activePrice }, size, qty);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
-  };
+  if (!product) {
+    return (
+      <div className="flex justify-center items-center h-96 text-zinc-500">
+        Loading Product Details...
+      </div>
+    );
+  }
 
-  // NEW: Connected to Shiprocket Serviceability API
-  const handlePincodeCheck = async () => {
-    if (pincode.length !== 6) {
-      setDeliveryInfo({ error: "Please enter a valid 6-digit PIN code." });
-      return;
-    }
-    setCheckingPincode(true);
-    setDeliveryInfo(null);
-    
-    try {
-      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/serviceability`, {
-        delivery_postcode: pincode
-      });
-
-      if (data.success && data.data && data.data.available_courier_companies.length > 0) {
-        // Grab the fastest/default courier from the array
-        const courier = data.data.available_courier_companies[0];
-        
-        const today = new Date();
-        today.setDate(today.getDate() + courier.estimated_delivery_days);
-        const options = { weekday: 'short', month: 'short', day: 'numeric' };
-        const formattedDate = today.toLocaleDateString('en-IN', options);
-        
-        setDeliveryInfo({ 
-          success: true, 
-          date: formattedDate, 
-          message: `Delivery available by ${formattedDate} via ${courier.courier_name}` 
-        });
-      } else {
-        setDeliveryInfo({ error: "Currently, our logistics partners do not deliver to this location." });
-      }
-    // Add a console.error on line 82:
-} catch (err) {
-  console.error(err); // Now the 'err' variable is used!
-  setDeliveryInfo({ error: "Serviceability check failed. Please try again later." });
-}
-    
-    
-  };
-
-  if (loading) return <div className="flex justify-center items-center h-full text-zinc-400">Loading product data...</div>;
-  if (!product) return <div className="flex justify-center items-center h-full text-zinc-400">Product not found.</div>;
+  const images = product.images && product.images.length > 0 ? product.images : [product.image];
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto flex flex-col md:flex-row gap-8 md:gap-12">
-      
-      <button onClick={() => navigate(-1)} className="md:hidden flex items-center text-zinc-400 hover:text-white font-semibold text-sm mb-2 w-fit">
-        <FiArrowLeft className="mr-2" /> Back
-      </button>
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* Left: Product Image Gallery */}
+        <div className="space-y-4">
+          <div className="aspect-square bg-[#18181b] border border-zinc-800 rounded-2xl overflow-hidden relative">
+            <img 
+              src={getImageUrl(images[selectedImage])} 
+              alt={product.name} 
+              className="w-full h-full object-cover"
+            />
+            {product.discountPercentage > 0 && (
+              <span className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase shadow-lg">
+                {product.discountPercentage}% OFF
+              </span>
+            )}
+          </div>
 
-      <div className="w-full md:w-1/2 flex-shrink-0 flex flex-col gap-4">
-        <div className="bg-[#18181b] rounded-2xl border border-zinc-800 overflow-hidden aspect-square flex items-center justify-center relative shadow-lg">
-          {product.discountPercentage > 0 && (
-            <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg z-10 shadow-lg tracking-wider">
-              {product.discountPercentage}% OFF
+          {/* Image Thumbnails */}
+          {images.length > 1 && (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedImage(idx)}
+                  className={`w-20 h-20 rounded-xl bg-[#18181b] border-2 overflow-hidden flex-shrink-0 transition-all ${
+                    selectedImage === idx ? 'border-white scale-95' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img src={getImageUrl(img)} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
           )}
-          
-          {activeImage ? (
-            <img 
-              src={`${import.meta.env.VITE_BACKEND_URL}${activeImage}`} 
-              alt={product.name} 
-              className="w-full h-full object-cover transition-opacity duration-300"
-            />
-          ) : (
-            <span className="text-zinc-600 font-bold uppercase tracking-widest">No Image Available</span>
-          )}
         </div>
 
-        {product.images && product.images.length > 1 && (
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {product.images.map((img, index) => (
+        {/* Right: Product Details & Add to Cart */}
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-zinc-800 text-zinc-300 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
+                {product.mainGroup}
+              </span>
+              <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
+                {product.subGroup}
+              </span>
+            </div>
+
+            <h1 className="text-2xl md:text-3xl font-black text-white">{product.name}</h1>
+            
+            <div className="flex items-center gap-3 mt-3">
+              {product.discountPrice > 0 ? (
+                <>
+                  <span className="text-2xl font-black text-white">Rs {product.discountPrice}</span>
+                  <span className="text-sm font-bold text-zinc-500 line-through">Rs {product.price}</span>
+                </>
+              ) : (
+                <span className="text-2xl font-black text-white">Rs {product.price}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Delivery Availability Checker */}
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-4">
+            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center mb-2">
+              <FiTruck className="mr-2" /> Check Delivery Availability
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter 6-digit Pincode"
+                maxLength={6}
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value)}
+                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-500 flex-1"
+              />
               <button 
-                key={index}
-                onClick={() => setActiveImage(img)}
-                className={`w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                  activeImage === img ? 'border-white opacity-100' : 'border-zinc-800 opacity-50 hover:opacity-100'
-                }`}
+                onClick={() => setPincodeStatus(pincode.length === 6 ? 'Deliverable to your area in 3-5 days' : 'Invalid Pincode')}
+                className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors"
               >
-                <img 
-                  src={`${import.meta.env.VITE_BACKEND_URL}${img}`} 
-                  alt={`Thumbnail ${index}`} 
-                  className="w-full h-full object-cover" 
-                />
+                Check
               </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="w-full md:w-1/2 flex flex-col">
-        <div className="flex items-center space-x-2 mb-3">
-          <span className="bg-zinc-800 text-zinc-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{product.mainGroup}</span>
-          <span className="bg-zinc-800 text-zinc-300 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{product.subGroup}</span>
-        </div>
-
-        <h1 className="text-3xl md:text-4xl font-black text-white mb-2 leading-tight">{product.name}</h1>
-        
-        <div className="flex items-center gap-3 mb-6">
-          {product.discountPercentage > 0 ? (
-            <>
-              <span className="text-3xl font-black text-white">Rs {product.discountPrice}</span>
-              <span className="text-xl font-bold text-zinc-500 line-through">Rs {product.price}</span>
-            </>
-          ) : (
-            <span className="text-3xl font-black text-white">Rs {product.price}</span>
-          )}
-        </div>
-
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-6">
-          <div className="flex items-center text-white font-bold mb-3">
-            <FiMapPin className="mr-2 text-zinc-400" /> Check Delivery Availability
-          </div>
-          <div className="flex space-x-2">
-            <input 
-              type="text" 
-              maxLength="6"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))} 
-              placeholder="Enter 6-digit Pincode" 
-              className="flex-1 bg-[#18181b] border border-zinc-700 rounded px-4 py-2 text-sm text-white focus:outline-none focus:border-zinc-500 transition-colors"
-            />
-            <button 
-              onClick={handlePincodeCheck}
-              disabled={checkingPincode || pincode.length !== 6}
-              className="bg-zinc-800 text-white font-bold px-6 py-2 rounded text-sm hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-            >
-              {checkingPincode ? 'Checking...' : 'Check'}
-            </button>
-          </div>
-          {deliveryInfo?.error && <p className="text-red-400 text-xs mt-3 font-semibold">{deliveryInfo.error}</p>}
-          {deliveryInfo?.success && <div className="flex items-center text-green-400 text-sm mt-3 font-semibold"><FiTruck className="mr-2" size={16} /> {deliveryInfo.message}</div>}
-        </div>
-
-        <p className="text-zinc-400 leading-relaxed mb-8 text-sm md:text-base">{product.description}</p>
-
-        <div className="mb-8">
-          <div className="flex justify-between items-end mb-3">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Select Size</h3>
-            <button className="text-xs text-zinc-500 hover:text-white underline underline-offset-2">Size Guide</button>
-          </div>
-          <div className="flex space-x-3">
-            {availableSizes.map(s => (
-              <button
-                key={s}
-                onClick={() => setSize(s)}
-                className={`w-12 h-12 rounded-lg font-bold transition-colors border ${size === s ? 'bg-white text-black border-white' : 'bg-[#18181b] text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex space-x-4 mb-8">
-          <div className="flex items-center bg-[#18181b] border border-zinc-700 rounded-lg">
-            <button onClick={() => setQty(Math.max(1, qty - 1))} className="p-4 text-zinc-400 hover:text-white transition-colors"><FiMinus /></button>
-            <span className="w-8 text-center font-bold text-white">{qty}</span>
-            <button onClick={() => setQty(qty + 1)} className="p-4 text-zinc-400 hover:text-white transition-colors"><FiPlus /></button>
+            </div>
+            {pincodeStatus && <p className="text-xs text-green-400 font-semibold mt-2">{pincodeStatus}</p>}
           </div>
 
-          <button 
-            onClick={handleAddToCart}
-            disabled={added}
-            className={`flex-1 flex items-center justify-center font-bold text-lg rounded-lg transition-all shadow-lg ${added ? 'bg-green-500 text-black pointer-events-none' : 'bg-white text-black hover:bg-zinc-200'}`}
+          <p className="text-sm text-zinc-400 leading-relaxed">{product.description}</p>
+
+          {/* Size Selector */}
+          <div>
+            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Select Size</h3>
+            <div className="flex gap-3">
+              {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  className={`w-12 h-12 rounded-xl font-bold text-sm border transition-all flex items-center justify-center ${
+                    selectedSize === size
+                      ? 'bg-white text-black border-white shadow-lg'
+                      : 'bg-[#18181b] text-zinc-400 border-zinc-800 hover:border-zinc-600'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Add to Cart Button */}
+          <button
+            onClick={() => addToCart({ ...product, size: selectedSize })}
+            className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors shadow-lg text-base"
           >
-            {added ? <><FiCheck className="mr-2" size={24} /> Added to Cart</> : <><FiShoppingCart className="mr-2" /> Add to Cart</>}
+            <FiShoppingBag size={20} /> Add to Cart
           </button>
         </div>
+
       </div>
     </div>
   );
