@@ -2,12 +2,11 @@ import { Link } from 'react-router-dom';
 import { FiPhoneCall } from 'react-icons/fi';
 
 const Home = () => {
-  // UPDATED: Category array using custom emblem image paths
   const uniforms = [
     { 
       name: "School Uniforms", 
       path: "/category/school-uniforms", 
-      image: "/emblems/school-uniform.png" // Or direct Cloudinary URL
+      image: "/emblems/school-uniform.png" // or direct Cloudinary link
     },
     { 
       name: "NCC Uniforms", 
@@ -42,34 +41,27 @@ const Home = () => {
         </Link>
       </div>
 
-      {/* JOB UNIFORMS WITH CUSTOM EMBLEMS */}
+      {/* JOB UNIFORMS FULL EMBLEM CARDS */}
       <div className="mb-10">
         <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">
           Job Uniforms
         </h2>
         
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {uniforms.map((u, index) => (
             <Link 
               key={index} 
               to={u.path} 
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col items-center justify-center hover:border-zinc-500 hover:bg-zinc-800/80 transition-all text-center group shadow-md"
+              className="group relative bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-amber-500/60 transition-all duration-300 aspect-[3/4] shadow-xl block"
             >
-              {/* Pixel-Constrained Emblem Container */}
-              <div className="w-20 h-24 md:w-24 md:h-28 mb-3 flex items-center justify-center">
-                <img 
-                  src={u.image} 
-                  alt={u.name} 
-                  className="max-w-full max-h-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/100?text=Emblem';
-                  }}
-                />
-              </div>
-
-              <span className="text-white font-bold text-sm md:text-base group-hover:text-amber-400 transition-colors uppercase tracking-wider">
-                {u.name}
-              </span>
+              <img 
+                src={u.image} 
+                alt={u.name} 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/300x400/18181b/ffffff?text=Emblem';
+                }}
+              />
             </Link>
           ))}
         </div>
