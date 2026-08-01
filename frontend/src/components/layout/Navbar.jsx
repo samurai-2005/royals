@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FiSearch, FiShoppingBag, FiUser, FiMenu, FiX } from 'react-icons/fi';
+import { FiSearch, FiShoppingBag, FiUser, FiMenu, FiX, FiBell } from 'react-icons/fi';
 import { useCart } from '../../context/CartContext';
 
 const Navbar = ({ toggleSidebar }) => {
@@ -19,10 +19,9 @@ const Navbar = ({ toggleSidebar }) => {
     <header className="bg-[#0f0f0f] border-b border-zinc-800 sticky top-0 z-40 px-4 py-3">
       <div className="max-w-7xl mx-auto flex flex-col gap-3">
         
-        {/* TOP ROW: Logo, Sidebar Toggle, and Action Icons */}
+        {/* TOP ROW: Brand Name & Quick Action Icons */}
         <div className="flex items-center justify-between">
           
-          {/* Left: Mobile Menu Toggle & Brand Logo */}
           <div className="flex items-center gap-3">
             <button 
               onClick={toggleSidebar} 
@@ -32,13 +31,12 @@ const Navbar = ({ toggleSidebar }) => {
               <FiMenu size={22} />
             </button>
 
-            <Link to="/" className="text-lg md:text-xl font-black text-white tracking-tight flex items-center gap-2">
-              <span className="bg-white text-black px-2 py-0.5 rounded text-xs md:text-sm font-black">RT</span>
-              <span className="truncate">The Royal Tailor</span>
+            <Link to="/" className="text-lg md:text-xl font-black text-white tracking-wider uppercase flex items-center gap-2">
+              ROYAL TAILOR
             </Link>
           </div>
 
-          {/* Desktop Search Bar (Center) */}
+          {/* PC Search Bar */}
           <form onSubmit={handleSearch} className="hidden md:block w-full max-w-md relative mx-4">
             <input
               type="text"
@@ -50,33 +48,29 @@ const Navbar = ({ toggleSidebar }) => {
             <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           </form>
 
-          {/* Right Action Icons (Cart & Account) */}
-          <div className="flex items-center gap-4 md:gap-6">
-            
-            {/* Cart Icon with Number Badge */}
-            <Link to="/cart" className="relative text-zinc-300 hover:text-white transition-colors flex items-center gap-2 p-1">
-              <div className="relative">
-                <FiShoppingBag size={20} />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
-                    {cartCount}
-                  </span>
-                )}
-              </div>
-              <span className="hidden md:inline text-xs font-bold">Cart</span>
+          {/* Actions: Notification Bell + Cart + Profile */}
+          <div className="flex items-center gap-4">
+            <button className="text-zinc-300 hover:text-white p-1" aria-label="Notifications">
+              <FiBell size={20} />
+            </button>
+
+            <Link to="/cart" className="relative text-zinc-300 hover:text-white transition-colors p-1">
+              <FiShoppingBag size={20} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
+                  {cartCount}
+                </span>
+              )}
             </Link>
 
-            {/* Account Link */}
-            <Link to="/user-profile" className="text-zinc-300 hover:text-white transition-colors flex items-center gap-2 p-1">
-              <FiUser size={20} />
-              <span className="hidden md:inline text-xs font-bold">Account</span>
+            <Link to="/user-profile" className="hidden md:flex items-center gap-2 text-zinc-300 hover:text-white text-xs font-bold transition-colors">
+              <FiUser size={18} /> Account
             </Link>
-
           </div>
         </div>
 
         {/* ALWAYS-VISIBLE MOBILE SEARCH BAR */}
-        <div className="md:hidden w-full">
+        <div className="block md:hidden w-full">
           <form onSubmit={handleSearch} className="relative w-full">
             <input
               type="text"
