@@ -29,30 +29,31 @@ const Home = () => {
   ];
 
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
+    <div className="p-3.5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
       
       {/* Mobile-Only Bulk Order Button */}
-      <div className="md:hidden mb-8">
+      <div className="md:hidden mb-6">
         <Link 
           to="/bulk-order" 
-          className="w-full bg-white text-black font-black py-4 rounded-xl shadow-lg flex items-center justify-center transition-colors active:bg-zinc-200"
+          className="w-full bg-white text-black font-black py-3.5 rounded-xl shadow-lg flex items-center justify-center transition-colors active:bg-zinc-200 text-sm"
         >
-          <FiPhoneCall className="mr-2" size={18} /> Bulk / Uniform Enquiry
+          <FiPhoneCall className="mr-2" size={16} /> Bulk / Uniform Enquiry
         </Link>
       </div>
 
-      {/* JOB UNIFORMS FULL EMBLEM CARDS */}
-      <div className="mb-10">
-        <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">
+      {/* JOB UNIFORMS (3 Columns on Mobile & Desktop) */}
+      <div className="mb-8 md:mb-10">
+        <h2 className="text-lg md:text-2xl font-bold text-white mb-3 md:mb-5 tracking-wide">
           Job Uniforms
         </h2>
         
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {/* grid-cols-3 forces all 3 emblems to sit side-by-side in one compact row on mobile */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-5">
           {uniforms.map((u, index) => (
             <Link 
               key={index} 
               to={u.path} 
-              className="group relative bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-amber-500/60 transition-all duration-300 aspect-[3/4] shadow-xl block"
+              className="group relative bg-zinc-900 border border-zinc-800 rounded-xl md:rounded-2xl overflow-hidden hover:border-amber-500/60 transition-all duration-300 aspect-[3/4] shadow-md block"
             >
               <img 
                 src={u.image} 
@@ -69,18 +70,18 @@ const Home = () => {
 
       {/* CLOTHES & COMPONENTS */}
       <div>
-        <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">
+        <h2 className="text-lg md:text-2xl font-bold text-white mb-3 md:mb-5 tracking-wide">
           Clothes & Components
         </h2>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3">
           {clothes.map((c, index) => (
             <Link 
               key={index} 
               to={c.path} 
-              className="bg-[#18181b] border border-zinc-800 rounded-lg p-5 flex items-center justify-center hover:border-zinc-500 transition-colors"
+              className="bg-[#18181b] border border-zinc-800 rounded-lg p-3.5 md:p-5 flex items-center justify-center hover:border-zinc-500 transition-colors"
             >
-              <span className="text-zinc-400 font-semibold text-sm">
+              <span className="text-zinc-400 font-semibold text-xs md:text-sm">
                 {c.name}
               </span>
             </Link>
