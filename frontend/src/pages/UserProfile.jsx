@@ -9,9 +9,8 @@ import {
   FiLogOut, 
   FiChevronRight, 
   FiShield,
-  FiEdit2,
   FiLoader,
-  FiSliders
+  FiCamera
 } from 'react-icons/fi';
 
 const UserProfile = () => {
@@ -35,6 +34,26 @@ const UserProfile = () => {
     const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
+
+  // Auto-sync profile with backend to verify isAdmin flag live
+  useEffect(() => {
+    const syncProfileData = async () => {
+      if (!user?.token) return;
+      try {
+        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, config);
+        
+        // Preserve JWT token while updating profile data
+        const updatedUser = { ...data, token: user.token };
+        setUser(updatedUser);
+        localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+      } catch (error) {
+        console.error("Failed to sync live profile data", error);
+      }
+    };
+
+    syncProfileData();
+  }, [user.token]);
 
   useEffect(() => {
     if (activeView === 'orders' && user?.token) {
@@ -78,8 +97,9 @@ const UserProfile = () => {
         userConfig
       );
 
-      setUser(updatedUser);
-      localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+      const mergedUser = { ...updatedUser, token: user.token };
+      setUser(mergedUser);
+      localStorage.setItem('userInfo', JSON.stringify(mergedUser));
       
     } catch (error) {
       console.error("Error uploading profile picture:", error);
@@ -92,23 +112,18 @@ const UserProfile = () => {
   const renderMenu = () => (
     <div className="space-y-6">
       
-      {/* ⚡ ADMIN ACCESS MENU CARD (Only visible if user.isAdmin is true) */}
+      {/* ADMIN CONTROL BANNER (Visible whenever user.isAdmin is true) */}
       {user?.isAdmin && (
-        <div>
-          <h2 className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-3 px-2 flex items-center">
-            <FiShield className="mr-1.5" /> Administrator Controls
-          </h2>
-          <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl overflow-hidden shadow-lg">
-            <Link 
-              to="/profile" 
-              className="w-full flex items-center justify-between p-4 hover:bg-amber-900/30 transition-colors text-amber-300 font-bold text-sm"
-            >
-              <div className="flex items-center">
-                <FiSliders className="mr-3 text-amber-400" size={18} /> Open Admin Dashboard
-              </div>
-              <FiChevronRight className="text-amber-500" />
-            </Link>
-          </div>
+        <div className="mb-6">
+          <Link 
+            to="/profile" 
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black p-4 rounded-xl flex items-center justify-between shadow-lg transition-colors border border-amber-400"
+          >
+            <span className="flex items-center gap-2 text-sm">
+              <FiShield size={20} /> Open Admin Dashboard
+            </span>
+            <FiChevronRight size={20} />
+          </Link>
         </div>
       )}
 
@@ -259,6 +274,7 @@ const UserProfile = () => {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto pb-24 md:pb-8">
       
+      {/* Hidden File Input */}
       <input 
         type="file" 
         accept="image/*" 
@@ -267,38 +283,37 @@ const UserProfile = () => {
         className="hidden" 
       />
 
+      {/* Header Profile Section */}
       <div className="flex items-center space-x-5 mb-8 md:mb-12">
-        <div className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative overflow-hidden group">
+        
+        {/* Tapable Avatar Container */}
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform"
+          title="Tap to change profile picture"
+        >
           {uploading ? (
             <FiLoader size={24} className="text-white animate-spin" />
           ) : user.profilePicture ? (
-            <img src={getImageUrl(user.profilePicture)} alt="Avatar" className="w-full h-full object-cover" />
+            <img src={getImageUrl(user.profilePicture)} alt="Avatar" className="w-full h-full object-cover rounded-full" />
           ) : (
             <FiUser size={32} className="text-zinc-400" />
           )}
 
-          <button 
-            onClick={() => fileInputRef.current.click()}
-            disabled={uploading}
-            className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white transition-all cursor-pointer z-10"
-            title="Change Profile Picture"
-          >
-            <FiEdit2 size={20} />
-          </button>
+          {/* Touch-Friendly Badge Icon */}
+          <div className="absolute bottom-0 right-0 bg-white text-black p-1.5 rounded-full shadow-md border border-zinc-900">
+            <FiCamera size={13} />
+          </div>
         </div>
 
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{user.name}</h1>
           <p className="text-sm text-zinc-400">{user.email}</p>
 
-          {/* ⚡ DIRECT HEADER BUTTON (Only renders if user.isAdmin is true) */}
           {user?.isAdmin && (
-            <Link
-              to="/profile"
-              className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-bold hover:bg-amber-500/20 transition-colors shadow-sm"
-            >
-              <FiShield size={14} /> Admin Dashboard
-            </Link>
+            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+              <FiShield size={12} /> Administrator
+            </span>
           )}
         </div>
       </div>
