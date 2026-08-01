@@ -62,7 +62,7 @@ const createProduct = async (req, res) => {
     } = req.body;
 
     if (!mainGroup) {
-      return res.status(400).json({ message: 'mainGroup (e.g., NCC, Bihar Police) is required.' });
+      return res.status(400).json({ message: 'mainGroup is required.' });
     }
 
     const product = new Product({
@@ -115,7 +115,25 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// NEW: @desc    Create new product review
+// @desc    Delete a product
+// @route   DELETE /api/products/:id
+// @access  Private/Admin
+const deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      await product.deleteOne();
+      res.json({ message: 'Product removed successfully' });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Create new product review
 // @route   POST /api/products/:id/reviews
 const createProductReview = async (req, res) => {
   try {
@@ -123,7 +141,6 @@ const createProductReview = async (req, res) => {
     const product = await Product.findById(req.params.id);
 
     if (product) {
-      // Check if the user has already reviewed this specific item
       const alreadyReviewed = product.reviews.find(
         (r) => r.user.toString() === req.user._id.toString()
       );
@@ -136,13 +153,10 @@ const createProductReview = async (req, res) => {
         name: req.user.name,
         rating: Number(rating),
         comment,
-        user: req.user._id, // Assumes you have an auth middleware attaching the user object
+        user: req.user._id,
       };
 
-      // Add the new review to the array
       product.reviews.push(review);
-
-      // Recalculate total reviews and average rating
       product.numReviews = product.reviews.length;
       product.rating =
         product.reviews.reduce((acc, item) => item.rating + acc, 0) /
@@ -164,5 +178,6 @@ module.exports = {
   getPromotionalProducts,
   createProduct,
   updateProduct,
-  createProductReview // Do not forget to export the new function
+  deleteProduct,
+  createProductReview
 };

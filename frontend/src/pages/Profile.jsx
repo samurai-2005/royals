@@ -32,7 +32,7 @@ const Profile = () => {
     name: '', 
     description: '', 
     price: '', 
-    mainGroup: 'NCC', 
+    mainGroup: 'School Uniforms', 
     subGroup: 'Unassigned', 
     images: [] 
   });
@@ -123,9 +123,30 @@ const Profile = () => {
     setActiveTab('form');
   };
 
+  // ADDED: Delete Product Handler
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm("Are you sure you want to permanently delete this product?")) {
+      return;
+    }
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+      await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/products/${productId}`, config);
+      
+      setProducts(prev => prev.filter(p => p._id !== productId));
+      setStatus({ type: 'success', message: 'Product deleted successfully from inventory.' });
+    } catch (error) {
+      console.error("Failed to delete product", error);
+      setStatus({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to delete product.' 
+      });
+    }
+  };
+
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', description: '', price: '', mainGroup: 'NCC', subGroup: 'Unassigned', images: [] });
+    setFormData({ name: '', description: '', price: '', mainGroup: 'School Uniforms', subGroup: 'Unassigned', images: [] });
     setStatus({ type: '', message: '' });
   };
 
@@ -277,7 +298,7 @@ const Profile = () => {
             </div>
 
             {status.message && (
-              <div className="p-4 mb-6 rounded text-sm font-semibold bg-green-900/30 text-green-400 border border-green-800">
+              <div className={`p-4 mb-6 rounded text-sm font-semibold ${status.type === 'success' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
                 {status.message}
               </div>
             )}
@@ -310,13 +331,23 @@ const Profile = () => {
                         </td>
                         <td className="p-4 text-sm text-zinc-400">{p.mainGroup} / {p.subGroup}</td>
                         <td className="p-4 text-sm font-bold text-white">Rs {p.price}</td>
+                        {/* UPDATED: Edit + Delete Action Buttons */}
                         <td className="p-4 text-right">
-                          <button 
-                            onClick={() => handleEditClick(p)}
-                            className="inline-flex items-center text-xs font-bold bg-zinc-800 text-white px-3 py-1.5 rounded hover:bg-zinc-700 transition-colors"
-                          >
-                            <FiEdit2 className="mr-2" size={12} /> Edit
-                          </button>
+                          <div className="inline-flex items-center space-x-2">
+                            <button 
+                              onClick={() => handleEditClick(p)}
+                              className="inline-flex items-center text-xs font-bold bg-zinc-800 text-white px-3 py-1.5 rounded hover:bg-zinc-700 transition-colors"
+                            >
+                              <FiEdit2 className="mr-1.5" size={12} /> Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteProduct(p._id)}
+                              className="inline-flex items-center text-xs font-bold bg-red-950/60 border border-red-800/60 text-red-300 px-3 py-1.5 rounded hover:bg-red-900/80 transition-colors"
+                              title="Delete Product"
+                            >
+                              <FiTrash2 className="mr-1.5" size={12} /> Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -680,8 +711,9 @@ const Profile = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Main Group</label>
+                    {/* UPDATED: Only School Uniforms, NCC, and Security Guard */}
                     <select name="mainGroup" value={formData.mainGroup} onChange={handleChange} className="w-full bg-zinc-900 border border-zinc-800 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500 transition-colors">
-                      {['NCC', 'Bihar Police', 'Security Guard', 'Indian Army'].map(g => <option key={g} value={g}>{g}</option>)}
+                      {['School Uniforms', 'NCC', 'Security Guard'].map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
                   <div>

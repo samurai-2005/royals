@@ -2,13 +2,12 @@ import { Link } from 'react-router-dom';
 
 const LeftSidebar = () => {
   const categories = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Accessories'];
-  // ADDED: 'School Uniforms' to organizations list
-  const orgs = ['School Uniforms', 'NCC', 'Bihar Police', 'Security Guard', 'Indian Army'];
+  // Updated list: Only School Uniforms, NCC, and Security Guard
+  const orgs = ['School Uniforms', 'NCC', 'Security Guard'];
 
   return (
     <div className="p-4 flex flex-col h-full">
-      
-      {/* ADDED: Full Catalog Directory Link for PC Users */}
+      {/* Full Catalog Directory Link */}
       <div className="mb-6">
         <Link 
           to="/catalog" 
@@ -24,7 +23,7 @@ const LeftSidebar = () => {
         <ul className="space-y-3 text-sm text-zinc-300">
           {orgs.map(org => (
             <li key={org}>
-              <Link to={`/category/${org.toLowerCase().replace(' ', '-')}`} className="hover:text-white transition-colors">
+              <Link to={`/category/${org.toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-white transition-colors">
                 {org}
               </Link>
             </li>

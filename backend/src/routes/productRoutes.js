@@ -6,22 +6,25 @@ const {
   getPromotionalProducts,
   createProduct,
   updateProduct,
-  createProductReview // Newly imported review controller
+  deleteProduct,
+  createProductReview
 } = require('../controllers/productController');
 
 const router = express.Router();
 
-// Routes definitions
-// Secured the POST route with protect and admin middlewares
-router.route('/').get(getProducts).post(protect, admin, createProduct);
-router.route('/promotions/deals').get(getPromotionalProducts);
+router.route('/')
+  .get(getProducts)
+  .post(protect, admin, createProduct);
 
-// NEW: Route for handling product reviews
-router.route('/:id/reviews').post(protect, createProductReview);
+router.route('/promotions/deals')
+  .get(getPromotionalProducts);
 
-// Chained the new PUT method to the /:id route for editing
+router.route('/:id/reviews')
+  .post(protect, createProductReview);
+
 router.route('/:id')
   .get(getProductById)
-  .put(protect, admin, updateProduct);
+  .put(protect, admin, updateProduct)
+  .delete(protect, admin, deleteProduct);
 
 module.exports = router;

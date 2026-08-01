@@ -1,37 +1,52 @@
-import { NavLink } from 'react-router-dom';
-import { FiHome, FiGrid, FiTag, FiShoppingCart, FiUser } from 'react-icons/fi';
+import { Link, useLocation } from 'react-router-dom';
+import { FiHome, FiGrid, FiShoppingBag, FiTag, FiUser } from 'react-icons/fi';
+import { useCart } from '../../context/CartContext';
 
 const MobileBottomNav = () => {
+  const location = useLocation();
+  const { cartCount } = useCart();
+
+  const navs = [
+    { path: '/', label: 'Home', icon: <FiHome size={18} /> },
+    { path: '/catalog', label: 'Catalog', icon: <FiGrid size={18} /> },
+    { path: '/deals', label: 'Deals', icon: <FiTag size={18} /> },
+    { 
+      path: '/cart', 
+      label: 'Cart', 
+      icon: (
+        <div className="relative">
+          <FiShoppingBag size={18} />
+          {cartCount > 0 && (
+            <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
+              {cartCount}
+            </span>
+          )}
+        </div>
+      ) 
+    },
+    { path: '/user-profile', label: 'Account', icon: <FiUser size={18} /> },
+  ];
+
   return (
-    // md:hidden ensures this entire bar completely vanishes on tablets and desktops
-    <div className="md:hidden fixed bottom-0 left-0 w-full bg-[#0f0f0f] border-t border-zinc-800 flex justify-between items-center px-6 py-4 z-50">
-      
-      <NavLink to="/" className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-        <FiHome size={22} />
-        <span className="text-[10px] mt-1.5 font-medium">Home</span>
-      </NavLink>
-      
-      <NavLink to="/catalog" className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-        <FiGrid size={22} />
-        <span className="text-[10px] mt-1.5 font-medium">Catalog</span>
-      </NavLink>
-
-      <NavLink to="/deals" className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-        <FiTag size={22} />
-        <span className="text-[10px] mt-1.5 font-medium">Deals</span>
-      </NavLink>
-
-      <NavLink to="/cart" className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-        <FiShoppingCart size={22} />
-        <span className="text-[10px] mt-1.5 font-medium">Cart</span>
-      </NavLink>
-
-      <NavLink to="/user-profile" className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-        <FiUser size={22} />
-        <span className="text-[10px] mt-1.5 font-medium">Profile</span>
-      </NavLink>
-
-    </div>
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-zinc-800 z-40 px-2 py-2">
+      <div className="flex justify-around items-center">
+        {navs.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+                isActive ? 'text-white' : 'text-zinc-500'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 };
 
