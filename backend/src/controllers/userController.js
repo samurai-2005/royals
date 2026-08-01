@@ -15,13 +15,13 @@ const authUser = async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    // Assuming you have a matchPassword method on your User model using bcrypt
     if (user && (await user.matchPassword(password))) {
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        isAdmin: user.role === 'admin' || user.isAdmin === true, // 👈 Ensures frontend picks up admin rights
         profilePicture: user.profilePicture,
         token: generateToken(user._id),
       });
@@ -56,11 +56,36 @@ const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isAdmin: user.role === 'admin' || user.isAdmin === true,
         profilePicture: user.profilePicture,
         token: generateToken(user._id),
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get user profile (Sync on page load)
+// @route   GET /api/users/profile
+// @access  Private
+const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isAdmin: user.role === 'admin' || user.isAdmin === true,
+        profilePicture: user.profilePicture,
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -76,14 +101,12 @@ const updateUserProfile = async (req, res) => {
     if (user) {
       user.name = req.body.name || user.name;
       
-      // Update the profile picture if a new one is sent
       if (req.body.profilePicture !== undefined) {
         user.profilePicture = req.body.profilePicture;
       }
 
       const updatedUser = await user.save();
       
-      // DIAGNOSTIC LOG: Watch your backend terminal when you upload a picture!
       console.log("✅ SAVED TO MONGODB - Profile Picture Path:", updatedUser.profilePicture);
 
       res.json({
@@ -91,8 +114,9 @@ const updateUserProfile = async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
+        isAdmin: updatedUser.role === 'admin' || updatedUser.isAdmin === true,
         profilePicture: updatedUser.profilePicture,
-        token: req.headers.authorization.split(' ')[1], // Keep the user logged in with the same token
+        token: req.headers.authorization.split(' ')[1],
       });
     } else {
       res.status(404).json({ message: 'User not found' });
@@ -106,5 +130,6 @@ const updateUserProfile = async (req, res) => {
 module.exports = {
   authUser,
   registerUser,
+  getUserProfile,
   updateUserProfile,
 };
