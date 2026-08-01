@@ -28,6 +28,9 @@ const UserProfile = () => {
     userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null, isAdmin: false }
   );
 
+  // Helper check for admin privileges (Handles both `isAdmin: true` and `role: "admin"`)
+  const isAdminUser = user?.isAdmin === true || user?.role === 'admin';
+
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
@@ -35,7 +38,7 @@ const UserProfile = () => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Auto-sync profile with backend to verify isAdmin flag live
+  // Auto-sync profile with backend to verify admin status live
   useEffect(() => {
     const syncProfileData = async () => {
       if (!user?.token) return;
@@ -112,8 +115,8 @@ const UserProfile = () => {
   const renderMenu = () => (
     <div className="space-y-6">
       
-      {/* ADMIN CONTROL BANNER (Visible whenever user.isAdmin is true) */}
-      {user?.isAdmin && (
+      {/* ADMIN CONTROL BANNER (Visible if user is admin) */}
+      {isAdminUser && (
         <div className="mb-6">
           <Link 
             to="/profile" 
@@ -310,7 +313,7 @@ const UserProfile = () => {
           <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{user.name}</h1>
           <p className="text-sm text-zinc-400">{user.email}</p>
 
-          {user?.isAdmin && (
+          {isAdminUser && (
             <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 rounded-full text-[10px] font-black uppercase tracking-wider">
               <FiShield size={12} /> Administrator
             </span>
