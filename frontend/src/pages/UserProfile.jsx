@@ -26,7 +26,7 @@ const UserProfile = () => {
   
   const userInfoString = localStorage.getItem('userInfo');
   const [user, setUser] = useState(
-    userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null }
+    userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null, isAdmin: false }
   );
 
   const getImageUrl = (imagePath) => {
@@ -92,19 +92,19 @@ const UserProfile = () => {
   const renderMenu = () => (
     <div className="space-y-6">
       
-      {/* ADMIN SHORTCUT BUTTON (Appears if user is admin) */}
+      {/* ⚡ ADMIN ACCESS MENU CARD (Only visible if user.isAdmin is true) */}
       {user?.isAdmin && (
         <div>
           <h2 className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-3 px-2 flex items-center">
-            <FiShield className="mr-1.5" /> Administrator Access
+            <FiShield className="mr-1.5" /> Administrator Controls
           </h2>
           <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl overflow-hidden shadow-lg">
             <Link 
               to="/profile" 
-              className="w-full flex items-center justify-between p-4 hover:bg-amber-900/30 transition-colors text-amber-300 font-black text-sm"
+              className="w-full flex items-center justify-between p-4 hover:bg-amber-900/30 transition-colors text-amber-300 font-bold text-sm"
             >
               <div className="flex items-center">
-                <FiSliders className="mr-3 text-amber-400" size={18} /> Open Admin Hub
+                <FiSliders className="mr-3 text-amber-400" size={18} /> Open Admin Dashboard
               </div>
               <FiChevronRight className="text-amber-500" />
             </Link>
@@ -286,9 +286,20 @@ const UserProfile = () => {
             <FiEdit2 size={20} />
           </button>
         </div>
+
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{user.name}</h1>
           <p className="text-sm text-zinc-400">{user.email}</p>
+
+          {/* ⚡ DIRECT HEADER BUTTON (Only renders if user.isAdmin is true) */}
+          {user?.isAdmin && (
+            <Link
+              to="/profile"
+              className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-bold hover:bg-amber-500/20 transition-colors shadow-sm"
+            >
+              <FiShield size={14} /> Admin Dashboard
+            </Link>
+          )}
         </div>
       </div>
 
