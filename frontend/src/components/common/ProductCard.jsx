@@ -1,14 +1,25 @@
 import { Link } from 'react-router-dom';
-import { FiStar } from 'react-icons/fi'; // Imported the star icon
+import { FiStar } from 'react-icons/fi';
 
 const ProductCard = ({ product }) => {
   const defaultImage = "https://via.placeholder.com/300x400/27272a/ffffff?text=No+Image";
   
-  const displayImage = product.images && product.images.length > 0 
-    ? `${import.meta.env.VITE_BACKEND_URL}${product.images[0]}` 
-    : defaultImage;
+  // Dynamic Image Resolver: Handles Cloudinary links, old local paths, and missing images
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return defaultImage;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath; // Return Cloudinary / external URL as-is
+    }
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
 
-  // Added fallbacks to 0 in case the database hasn't processed ratings yet
+  const rawImage = (product.images && product.images.length > 0) 
+    ? product.images[0] 
+    : product.image;
+
+  const displayImage = getImageUrl(rawImage);
+
   const rating = product.rating || 0;
   const numReviews = product.numReviews || 0;
 
@@ -20,6 +31,9 @@ const ProductCard = ({ product }) => {
           src={displayImage} 
           alt={product.name} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={(e) => {
+            e.target.src = defaultImage;
+          }}
         />
         {product.discountPercentage > 0 && (
           <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow-lg">
@@ -38,7 +52,7 @@ const ProductCard = ({ product }) => {
           </h3>
         </Link>
         
-        {/* NEW: Star Rating System */}
+        {/* Star Rating System */}
         <div className="flex items-center mt-1.5 mb-2">
           <div className="flex text-yellow-500 text-xs">
             {[...Array(5)].map((_, i) => (
