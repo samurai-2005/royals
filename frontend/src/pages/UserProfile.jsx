@@ -10,7 +10,8 @@ import {
   FiChevronRight, 
   FiShield,
   FiEdit2,
-  FiLoader
+  FiLoader,
+  FiSliders
 } from 'react-icons/fi';
 
 const UserProfile = () => {
@@ -28,7 +29,6 @@ const UserProfile = () => {
     userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null }
   );
 
-  // Helper for rendering image URLs safely
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
@@ -91,6 +91,27 @@ const UserProfile = () => {
 
   const renderMenu = () => (
     <div className="space-y-6">
+      
+      {/* ADMIN SHORTCUT BUTTON (Appears if user is admin) */}
+      {user?.isAdmin && (
+        <div>
+          <h2 className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-3 px-2 flex items-center">
+            <FiShield className="mr-1.5" /> Administrator Access
+          </h2>
+          <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl overflow-hidden shadow-lg">
+            <Link 
+              to="/profile" 
+              className="w-full flex items-center justify-between p-4 hover:bg-amber-900/30 transition-colors text-amber-300 font-black text-sm"
+            >
+              <div className="flex items-center">
+                <FiSliders className="mr-3 text-amber-400" size={18} /> Open Admin Hub
+              </div>
+              <FiChevronRight className="text-amber-500" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Account</h2>
         <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden">
@@ -121,11 +142,11 @@ const UserProfile = () => {
             <FiChevronRight className="text-zinc-600" />
           </Link>
           <Link to="/refund-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Cancellation and Refund Policy</div>
+            <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Cancellation Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
           <Link to="/shipping-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
-            <div className="flex items-center text-zinc-300"><FiPackage className="mr-3 text-zinc-500" size={18} /> Shipping and Delivery Policy</div>
+            <div className="flex items-center text-zinc-300"><FiPackage className="mr-3 text-zinc-500" size={18} /> Shipping Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
         </div>
@@ -178,7 +199,6 @@ const UserProfile = () => {
                 </div>
               </div>
 
-              {/* Order Items with Image Thumbnails */}
               <div className="space-y-3">
                 {order.orderItems.map((item, index) => {
                   const imgUrl = getImageUrl(item.image);

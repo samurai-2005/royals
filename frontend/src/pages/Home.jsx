@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
-import { FiShield, FiBriefcase, FiStar, FiNavigation, FiPhoneCall } from 'react-icons/fi';
+import { FiBriefcase, FiStar, FiPhoneCall, FiBookOpen } from 'react-icons/fi';
 
 const Home = () => {
-  
+  // UPDATED: Strictly School Uniforms, NCC Uniforms, and Security Guard
   const uniforms = [
+    { name: "School Uniforms", path: "/category/school-uniforms", icon: <FiBookOpen size={28} /> },
     { name: "NCC Uniforms", path: "/category/ncc", icon: <FiStar size={28} /> },
-    { name: "Bihar Police", path: "/category/bihar-police", icon: <FiShield size={28} /> },
-    { name: "Security Guard", path: "/category/security", icon: <FiBriefcase size={28} /> },
-    { name: "Indian Army", path: "/category/army", icon: <FiNavigation size={28} /> }
+    { name: "Security Guard", path: "/category/security-guard", icon: <FiBriefcase size={28} /> }
   ];
 
   const clothes = [
@@ -21,7 +20,7 @@ const Home = () => {
   return (
     <div className="p-5 md:p-8 max-w-7xl mx-auto h-full overflow-y-auto pb-10">
       
-      {/* NEW: Mobile-Only Bulk Order Button */}
+      {/* Mobile-Only Bulk Order Button */}
       <div className="md:hidden mb-8">
         <Link 
           to="/bulk-order" 
@@ -34,7 +33,7 @@ const Home = () => {
       <div className="mb-10">
         <h2 className="text-xl md:text-2xl font-bold text-white mb-5 tracking-wide">Job Uniforms</h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {uniforms.map((u, index) => (
             <Link 
               key={index} 
