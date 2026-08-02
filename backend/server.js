@@ -1,4 +1,4 @@
-// 1. MUST be required before any other module
+require('dotenv').config(); // 👈 Must be at the top of server.js
 require('./instrument.js');
 
 // 2. Load environment variables IMMEDIATELY so process.env is ready for all imported modules
