@@ -1,149 +1,144 @@
-import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { FiShield, FiFileText, FiRefreshCw, FiTruck, FiArrowLeft } from 'react-icons/fi';
-
-const policies = {
-  '/refund-policy': {
-    title: 'Refund, Return & Cancellation Policy',
-    icon: <FiRefreshCw size={28} />,
-    lastUpdated: 'August 2026',
-    sections: [
-      {
-        heading: '1. Order Cancellation',
-        content: `Orders can be cancelled within 12 hours of placement or prior to dispatch by emailing support@royaltailors.net. Once dispatched via Shiprocket, orders cannot be cancelled.`
-      },
-      {
-        heading: '2. Returns & Exchanges',
-        content: `We accept return or replacement requests within 7 days of delivery for items that arrive defective, damaged, or incorrectly sized. Items must be unworn, unwashed, and in original packaging with tags intact.`
-      },
-      {
-        heading: '3. Custom & Tailored Uniforms',
-        content: `Custom-tailored uniform sets or personalized badge items are non-returnable unless defective or incorrectly fulfilled on our part.`
-      },
-      {
-        heading: '4. Refund Processing',
-        content: `Approved refunds are processed within 5-7 business days back to your original payment method or bank account.`
-      }
-    ]
-  },
-  '/shipping-policy': {
-    title: 'Shipping & Delivery Policy',
-    icon: <FiTruck size={28} />,
-    lastUpdated: 'August 2026',
-    sections: [
-      {
-        heading: '1. Processing Time',
-        content: `Standard uniform items are processed within 1–2 business days. Custom-tailored orders require 3–5 business days for precision stitching prior to dispatch.`
-      },
-      {
-        heading: '2. Shipping Charges & Timelines',
-        content: `We ship pan-India using verified couriers via Shiprocket. Standard delivery takes 3 to 7 business days. Orders over Rs. 2,000 qualify for FREE delivery; orders below Rs. 2,000 incur a standard Rs. 150 shipping fee.`
-      },
-      {
-        heading: '3. Real-Time Tracking',
-        content: `Once shipped, tracking numbers and tracking links are instantly updated in your account profile and sent via email.`
-      }
-    ]
-  },
-  '/privacy-policy': {
-    title: 'Privacy Policy',
-    icon: <FiShield size={28} />,
-    lastUpdated: 'August 2026',
-    sections: [
-      {
-        heading: '1. Information We Collect',
-        content: `We collect essential details to process orders: Name, Delivery Address, PIN Code, Phone Number, and Email Address.`
-      },
-      {
-        heading: '2. Data Usage & Encryption',
-        content: `Your data is strictly used for order processing and delivery. Online payment transactions are handled through encrypted payment gateways; we never store card numbers or PINs on our servers.`
-      },
-      {
-        heading: '3. Third-Party Services',
-        content: `We only share necessary address details with our logistics provider (Shiprocket) for delivery fulfillment and Sentry for application performance monitoring.`
-      }
-    ]
-  },
-  '/terms-and-conditions': {
-    title: 'Terms & Conditions',
-    icon: <FiFileText size={28} />,
-    lastUpdated: 'August 2026',
-    sections: [
-      {
-        heading: '1. General Terms',
-        content: `By accessing royaltailors.net, you agree to comply with our terms. Prices and product specifications are subject to change without prior notice.`
-      },
-      {
-        heading: '2. Account Security',
-        content: `Users are responsible for maintaining the confidentiality of their login credentials.`
-      },
-      {
-        heading: '3. Governing Law',
-        content: `These terms are governed by the laws of India, with jurisdiction in Patna, Bihar.`
-      }
-    ]
-  }
-};
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FiArrowLeft, FiShield, FiFileText, FiRefreshCw, FiTruck } from 'react-icons/fi';
 
 const PolicyPage = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const currentPolicy = policies[location.pathname] || policies['/refund-policy'];
+  const location = useLocation();
+
+  // Determine policy type purely from the current route path
+  const path = location.pathname.toLowerCase();
+  let currentPolicy = 'privacy';
+
+  if (path.includes('term')) {
+    currentPolicy = 'terms';
+  } else if (path.includes('cancel') || path.includes('refund')) {
+    currentPolicy = 'cancellation';
+  } else if (path.includes('ship')) {
+    currentPolicy = 'shipping';
+  } else if (location.state?.policy) {
+    currentPolicy = location.state.policy;
+  }
+
+  // Individual policy contents
+  const policyData = {
+    privacy: {
+      title: 'Privacy Policy',
+      icon: <FiShield className="text-amber-500" size={26} />,
+      sections: [
+        {
+          heading: '1. Information We Collect',
+          content: 'We collect essential details required to process uniform orders: Name, Delivery Address, PIN Code, Phone Number, and Email Address.'
+        },
+        {
+          heading: '2. Data Usage & Encryption',
+          content: 'Your data is strictly used for order processing and delivery. Online payment transactions are handled through encrypted payment gateways; we never store card numbers or PINs on our servers.'
+        },
+        {
+          heading: '3. Third-Party Services',
+          content: 'We share necessary delivery information with authorized logistics partners (e.g., Shiprocket) strictly for order fulfillment.'
+        },
+        {
+          heading: '4. Your Rights',
+          content: 'You can update or request deletion of your account information at any time through your User Profile or by contacting support.'
+        }
+      ]
+    },
+    terms: {
+      title: 'Terms & Conditions',
+      icon: <FiFileText className="text-amber-500" size={26} />,
+      sections: [
+        {
+          heading: '1. Acceptance of Terms',
+          content: 'By placing an order on The Royal Tailor uniform portal, you agree to comply with our portal guidelines and standard sales policies.'
+        },
+        {
+          heading: '2. Uniform Specifications & Sizing',
+          content: 'Custom uniform tailoring is completed according to official institutional size charts. Please verify measurement selections before submitting your order.'
+        },
+        {
+          heading: '3. Ordering & Payments',
+          content: 'Orders are confirmed upon successful payment verification. Prices displayed include applicable taxes unless specified otherwise.'
+        },
+        {
+          heading: '4. Intellectual Property',
+          content: 'All uniform badges, logos, and portal graphics are official properties of The Royal Tailor Patna.'
+        }
+      ]
+    },
+    cancellation: {
+      title: 'Cancellation & Refund Policy',
+      icon: <FiRefreshCw className="text-amber-500" size={26} />,
+      sections: [
+        {
+          heading: '1. Order Cancellation Window',
+          content: 'Orders can be cancelled within 12 hours of placement or before stitching/dispatch processing begins.'
+        },
+        {
+          heading: '2. Replacements & Returns',
+          content: 'Defective or incorrect size dispatches are eligible for a free replacement within 7 days of delivery.'
+        },
+        {
+          heading: '3. Refund Processing',
+          content: 'Approved refunds will be processed back to your original payment method or bank account within 5-7 business days.'
+        }
+      ]
+    },
+    shipping: {
+      title: 'Shipping & Delivery Policy',
+      icon: <FiTruck className="text-amber-500" size={26} />,
+      sections: [
+        {
+          heading: '1. Dispatch Timeline',
+          content: 'Standard uniform orders are dispatched within 2-4 business days. Custom tailored garments may require 5-7 business days.'
+        },
+        {
+          heading: '2. Delivery Partners',
+          content: 'Shipments across Patna, Bihar, and Pan-India are delivered via trusted logistics partners including Shiprocket and postal networks.'
+        },
+        {
+          heading: '3. Order Tracking',
+          content: 'Once shipped, an Air Waybill (AWB) tracking number will be updated under your Order Details for real-time tracking.'
+        }
+      ]
+    }
+  };
+
+  const active = policyData[currentPolicy] || policyData.privacy;
 
   return (
-    <div className="max-w-4xl mx-auto text-white pb-28">
-      
-      {/* Navigation Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-zinc-800 pb-4">
+    <div className="min-h-screen bg-[#0f0f0f] text-white p-4 md:p-10 flex flex-col items-center">
+      <div className="max-w-3xl w-full space-y-6">
         
-        {/* Go Back Button */}
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm w-fit"
+        {/* BACK TO MENU BUTTON */}
+        <button
+          type="button"
+          onClick={() => navigate('/user-profile')}
+          className="flex items-center gap-2 text-zinc-300 hover:text-white text-xs font-bold transition-colors cursor-pointer bg-[#18181b] border border-zinc-800 px-4 py-2.5 rounded-xl w-fit shadow-md"
         >
-          <FiArrowLeft size={16} /> Go Back
+          <FiArrowLeft size={16} /> Back to Menu
         </button>
 
-        {/* Policy Selector Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {Object.keys(policies).map((path) => (
-            <Link
-              key={path}
-              to={path}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                location.pathname === path 
-                  ? 'bg-white text-black shadow-md' 
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-              }`}
-            >
-              {policies[path].title.split(' ')[0]} Policy
-            </Link>
+        {/* SINGLE POLICY HEADER */}
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-2xl flex items-center space-x-4">
+          <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800">
+            {active.icon}
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-wide text-white">{active.title}</h1>
+            <p className="text-xs text-zinc-500 mt-1">Official Policy • The Royal Tailor Patna</p>
+          </div>
+        </div>
+
+        {/* SINGLE POLICY CONTENT (NO TOP TOGGLE TAB BAR) */}
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 md:p-8 shadow-2xl space-y-6">
+          {active.sections.map((sec, idx) => (
+            <div key={idx} className="space-y-2 border-b border-zinc-800/60 pb-5 last:border-b-0 last:pb-0">
+              <h3 className="text-sm font-bold text-white tracking-wide">{sec.heading}</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">{sec.content}</p>
+            </div>
           ))}
         </div>
-      </div>
 
-      {/* Header Banner */}
-      <div className="bg-[#18181b] border border-zinc-800 p-6 md:p-8 rounded-2xl mb-6 shadow-xl flex items-center gap-4">
-        <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 text-white flex-shrink-0">
-          {currentPolicy.icon}
-        </div>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black">{currentPolicy.title}</h1>
-          <p className="text-xs text-zinc-500 mt-1">Last Updated: {currentPolicy.lastUpdated}</p>
-        </div>
-      </div>
-
-      {/* Content Sections */}
-      <div className="bg-[#18181b] border border-zinc-800 p-6 md:p-8 rounded-2xl shadow-xl space-y-6">
-        {currentPolicy.sections.map((section, idx) => (
-          <div key={idx} className="space-y-2 border-b border-zinc-800/60 pb-5 last:border-b-0 last:pb-0">
-            <h2 className="text-lg font-bold text-zinc-200">{section.heading}</h2>
-            <p className="text-sm text-zinc-400 leading-relaxed">{section.content}</p>
-          </div>
-        ))}
-
-        <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-xl text-xs text-zinc-400 text-center mt-6">
-          For any questions regarding these policies, reach out to <a href="mailto:support@royaltailors.net" className="text-white font-bold underline">support@royaltailors.net</a> or visit our <Link to="/contact" className="text-white font-bold underline">Contact Page</Link>.
-        </div>
       </div>
     </div>
   );
