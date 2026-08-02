@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { FiMail, FiPhone, FiLock, FiUser, FiArrowLeft } from 'react-icons/fi';
+import { FiMail, FiPhone, FiLock, FiUser, FiArrowLeft, FiInfo, FiCheckCircle } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 
 const Login = () => {
@@ -19,9 +19,8 @@ const Login = () => {
   
   // OTP Auth Flow States
   const [authMethod, setAuthMethod] = useState('otp'); // 'otp' | 'password'
-  const [step, setStep] = useState('input'); // 'input' | 'channel_select' | 'otp_verify'
+  const [step, setStep] = useState('input'); // 'input' | 'otp_verify'
   const [loginIdentifier, setLoginIdentifier] = useState(''); // Email or Phone typed by user
-  const [selectedChannel, setSelectedChannel] = useState('sms'); // 'sms' | 'email'
   const [otp, setOtp] = useState('');
   
   const [loading, setLoading] = useState(false);
@@ -41,7 +40,7 @@ const Login = () => {
     window.location.href = `${backendUrl}/api/users/google`;
   };
 
-  // Step 1: Request OTP (Triggers channel selection if user has both email & phone)
+  // Step 1: Request OTP (Dispatches straight to email)
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -54,41 +53,14 @@ const Login = () => {
 
     setLoading(true);
     try {
-      // API checks if user exists and returns available delivery channels (SMS / Email)
-      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/check-otp-channels`, {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/send-otp`, {
         identifier: loginIdentifier
       });
 
-      if (data.hasBoth) {
-        // User has both Email and Mobile linked -> Move to Channel Select step
-        setStep('channel_select');
-      } else {
-        // Single channel -> Send OTP directly
-        await sendOtpToChannel(data.defaultChannel || 'email');
-      }
-    } catch (err) {
-      // If user not found, suggest signing up
-      setError(err.response?.data?.message || 'Account not found. Please register below.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Dispatch OTP via chosen channel
-  const sendOtpToChannel = async (channel) => {
-    setLoading(true);
-    setError('');
-    try {
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/send-otp`, {
-        identifier: loginIdentifier,
-        channel: channel // 'sms' or 'email'
-      });
-      
-      setSelectedChannel(channel);
-      setMessage(`OTP sent successfully via ${channel === 'sms' ? 'Mobile SMS' : 'Email'}.`);
+      setMessage('Verification OTP dispatched to your registered email inbox.');
       setStep('otp_verify');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+      setError(err.response?.data?.message || 'Account not found. Please register below.');
     } finally {
       setLoading(false);
     }
@@ -130,7 +102,7 @@ const Login = () => {
       localStorage.setItem('userInfo', JSON.stringify(data));
       navigate('/user-profile');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password.');
+      setError(err.response?.data?.message || 'Invalid email/phone or password.');
     } finally {
       setLoading(false);
     }
@@ -148,7 +120,6 @@ const Login = () => {
 
     setLoading(true);
     try {
-      // Step 1: Register User & Trigger Dual OTP Verification
       await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/register`, {
         name,
         email,
@@ -157,7 +128,7 @@ const Login = () => {
       });
 
       setLoginIdentifier(email);
-      setMessage('Account created! Please verify your OTP sent to your email/phone.');
+      setMessage('Account created! Verification OTP sent to your registered email.');
       setTab('login');
       setStep('otp_verify');
     } catch (err) {
@@ -168,7 +139,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col justify-center items-center p-4">
+    <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col justify-center items-center p-4 relative">
       
       {/* Back to Shop */}
       <button 
@@ -189,17 +160,25 @@ const Login = () => {
         {/* Tab Toggle: Login vs Signup */}
         <div className="grid grid-cols-2 bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-xs font-bold">
           <button 
-            onClick={() => { setTab('login'); setStep('input'); setError(''); }}
+            onClick={() => { setTab('login'); setStep('input'); setError(''); setMessage(''); }}
             className={`py-2 rounded-lg transition-colors cursor-pointer ${tab === 'login' ? 'bg-white text-black shadow' : 'text-zinc-400 hover:text-white'}`}
           >
             Sign In
           </button>
           <button 
-            onClick={() => { setTab('signup'); setError(''); }}
+            onClick={() => { setTab('signup'); setError(''); setMessage(''); }}
             className={`py-2 rounded-lg transition-colors cursor-pointer ${tab === 'signup' ? 'bg-white text-black shadow' : 'text-zinc-400 hover:text-white'}`}
           >
             Register
           </button>
+        </div>
+
+        {/* Temporary Mobile SMS Notice Banner */}
+        <div className="bg-amber-950/40 border border-amber-800/60 p-3 rounded-xl text-amber-300 text-[11px] leading-relaxed flex items-start space-x-2.5">
+          <FiInfo className="text-amber-400 flex-shrink-0 mt-0.5" size={16} />
+          <span>
+            <strong>SMS Notice:</strong> If the OTP is not coming to your mobile number, please check your registered email inbox for the OTP to verify.
+          </span>
         </div>
 
         {/* Global Error/Success Messages */}
@@ -209,8 +188,8 @@ const Login = () => {
           </div>
         )}
         {message && (
-          <div className="bg-green-950/40 border border-green-800/60 p-3 rounded-xl text-green-400 text-xs text-center font-medium">
-            {message}
+          <div className="bg-green-950/40 border border-green-800/60 p-3 rounded-xl text-green-400 text-xs text-center font-medium flex items-center justify-center gap-2">
+            <FiCheckCircle size={14} /> {message}
           </div>
         )}
 
@@ -246,7 +225,7 @@ const Login = () => {
                       required
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="e.g. +919576793770 or name@gmail.com"
+                      placeholder="e.g. 9304566723 or name@gmail.com"
                       className="w-full bg-[#0f0f0f] border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white text-xs focus:outline-none focus:border-zinc-500"
                     />
                   </div>
@@ -291,45 +270,7 @@ const Login = () => {
               </form>
             )}
 
-            {/* Step B: OTP Channel Selection */}
-            {step === 'channel_select' && (
-              <div className="space-y-4 animate-fade-in">
-                <p className="text-xs text-zinc-300 text-center">
-                  Where would you like to receive your 6-digit login verification OTP?
-                </p>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => sendOtpToChannel('sms')}
-                    disabled={loading}
-                    className="p-4 bg-zinc-900 border border-zinc-700 hover:border-white rounded-xl text-center space-y-2 transition-colors cursor-pointer"
-                  >
-                    <FiPhone size={22} className="mx-auto text-zinc-300" />
-                    <p className="text-xs font-bold text-white">Mobile SMS</p>
-                    <p className="text-[10px] text-zinc-500">Instant SMS Code</p>
-                  </button>
-
-                  <button
-                    onClick={() => sendOtpToChannel('email')}
-                    disabled={loading}
-                    className="p-4 bg-zinc-900 border border-zinc-700 hover:border-white rounded-xl text-center space-y-2 transition-colors cursor-pointer"
-                  >
-                    <FiMail size={22} className="mx-auto text-zinc-300" />
-                    <p className="text-xs font-bold text-white">Email Inbox</p>
-                    <p className="text-[10px] text-zinc-500">Secure Email Code</p>
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => setStep('input')} 
-                  className="w-full text-[11px] text-zinc-500 hover:text-white text-center pt-2 cursor-pointer"
-                >
-                  ← Change Mobile / Email
-                </button>
-              </div>
-            )}
-
-            {/* Step C: Enter & Verify OTP */}
+            {/* Step B: Enter & Verify OTP */}
             {step === 'otp_verify' && (
               <form onSubmit={handleVerifyOtp} className="space-y-4 animate-fade-in">
                 <div>
@@ -345,8 +286,8 @@ const Login = () => {
                     placeholder="123456"
                     className="w-full bg-[#0f0f0f] border border-zinc-700 rounded-xl px-4 py-3 text-white text-center font-mono text-lg tracking-widest focus:outline-none focus:border-zinc-500"
                   />
-                  <p className="text-[10px] text-zinc-500 text-center mt-1">
-                    Code sent via {selectedChannel === 'sms' ? 'Mobile SMS' : 'Email'}.
+                  <p className="text-[10px] text-zinc-400 text-center mt-2">
+                    Code dispatched to your registered email inbox.
                   </p>
                 </div>
 
@@ -359,8 +300,8 @@ const Login = () => {
                 </button>
 
                 <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
-                  <button type="button" onClick={() => sendOtpToChannel(selectedChannel)} className="hover:text-white underline cursor-pointer">
-                    Resend OTP
+                  <button type="button" onClick={handleRequestOtp} className="hover:text-white underline cursor-pointer">
+                    Resend Email OTP
                   </button>
                   <button type="button" onClick={() => setStep('input')} className="hover:text-white underline cursor-pointer">
                     Change Email/Phone
@@ -403,7 +344,7 @@ const Login = () => {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 9576793770"
+                  placeholder="9304566723"
                   className="w-full bg-[#0f0f0f] border border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-xs focus:outline-none focus:border-zinc-500"
                 />
               </div>
