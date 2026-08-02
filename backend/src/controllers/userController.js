@@ -16,78 +16,101 @@ const generate6DigitOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Helper: Send OTP via Fast2SMS Gateway (with Zoho Email Fallback)
+// Helper: Send OTP via Resend API, Fast2SMS, or Zoho SMTP
 const dispatchOTP = async ({ email, phone, otp, channel }) => {
   console.log(`\n🔑 [OTP GENERATED] -> Code: ${otp} | Target: ${channel === 'sms' ? phone : email}\n`);
 
-  let smsSuccess = false;
-
-  // --- 1. FAST2SMS DISPATCH (When channel === 'sms') ---
+  // --- 1. SMS DISPATCH VIA FAST2SMS ---
   if (channel === 'sms' && phone) {
     const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
 
     if (process.env.FAST2SMS_API_KEY) {
       try {
-        // Fast2SMS API V2 Specification
         const response = await axios.get('https://www.fast2sms.com/dev/bulkV2', {
-          headers: {
-            Authorization: process.env.FAST2SMS_API_KEY, // Fast2SMS Header Authorization
-          },
-          params: {
-            variables_values: otp,
-            route: 'otp',
-            numbers: cleanPhone,
-          },
+          headers: { Authorization: process.env.FAST2SMS_API_KEY },
+          params: { variables_values: otp, route: 'otp', numbers: cleanPhone },
         });
 
         if (response.data && response.data.return) {
           console.log(`✅ [FAST2SMS SUCCESS] OTP delivered to +91 ${cleanPhone}`);
-          smsSuccess = true;
           return;
-        } else {
-          console.warn(`⚠️ [FAST2SMS WARN]: ${response.data.message || 'Status 996 (Website verification pending)'}`);
         }
       } catch (smsErr) {
-        console.warn('⚠️ [FAST2SMS REQUEST FAILED]:', smsErr.response?.data?.message || smsErr.message);
+        console.warn('⚠️ [FAST2SMS FAILED]:', smsErr.response?.data?.message || smsErr.message);
       }
-    } else {
-      console.warn('⚠️ FAST2SMS_API_KEY missing from .env file.');
     }
   }
 
-  // --- 2. ZOHO EMAIL FALLBACK ---
-  // Runs if channel === 'email' OR if Fast2SMS fails / pending domain approval
-  if (!smsSuccess) {
-    if (channel === 'sms') {
-      console.log(`📡 [FALLBACK TRIGGERED] Sending OTP code ${otp} to registered Email: ${email}`);
+  // --- 2. EMAIL DISPATCH VIA RESEND API (Uses Render RESEND_API_KEY) ---
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await axios.post(
+        'https://api.resend.com/emails',
+        {
+          from: process.env.EMAIL_FROM || 'The Royal Tailor <onboarding@resend.dev>',
+          to: [email],
+          subject: 'Your Access OTP - The Royal Tailor Patna',
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 24px; background: #0f0f0f; color: #ffffff; border-radius: 12px; max-width: 500px; margin: 0 auto;">
+              <h2 style="margin: 0 0 12px 0; letter-spacing: 1px;">THE ROYAL TAILOR</h2>
+              <p style="color: #a1a1aa; font-size: 14px;">Your 6-digit verification code is:</p>
+              <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background: #18181b; padding: 12px 20px; border-radius: 8px; display: inline-block; margin: 16px 0; border: 1px solid #27272a;">
+                ${otp}
+              </div>
+              <p style="font-size: 12px; color: #71717a;">This code is valid for 10 minutes. Do not share it with anyone.</p>
+            </div>
+          `,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      console.log(`✅ [RESEND SUCCESS] Email OTP delivered to ${email}`);
+      return;
+    } catch (resendErr) {
+      console.warn('⚠️ [RESEND FAILED]:', resendErr.response?.data || resendErr.message);
     }
+  }
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+  // --- 3. EMAIL DISPATCH VIA ZOHO SMTP ---
+  if (process.env.SMTP_HOST) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
 
-    await transporter.sendMail({
-      from: `"The Royal Tailor Support" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: 'Your Access OTP - The Royal Tailor Patna',
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 24px; background: #0f0f0f; color: #ffffff; border-radius: 12px; max-width: 500px; margin: 0 auto;">
-          <h2 style="margin: 0 0 12px 0; letter-spacing: 1px;">THE ROYAL TAILOR</h2>
-          <p style="color: #a1a1aa; font-size: 14px;">Your 6-digit verification code is:</p>
-          <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background: #18181b; padding: 12px 20px; border-radius: 8px; display: inline-block; margin: 16px 0; border: 1px solid #27272a;">
-            ${otp}
+      await transporter.sendMail({
+        from: `"The Royal Tailor Support" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Your Access OTP - The Royal Tailor Patna',
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; background: #0f0f0f; color: #ffffff; border-radius: 12px; max-width: 500px; margin: 0 auto;">
+            <h2 style="margin: 0 0 12px 0; letter-spacing: 1px;">THE ROYAL TAILOR</h2>
+            <p style="color: #a1a1aa; font-size: 14px;">Your 6-digit verification code is:</p>
+            <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background: #18181b; padding: 12px 20px; border-radius: 8px; display: inline-block; margin: 16px 0; border: 1px solid #27272a;">
+              ${otp}
+            </div>
+            <p style="font-size: 12px; color: #71717a;">This code is valid for 10 minutes. Do not share it with anyone.</p>
           </div>
-          <p style="font-size: 12px; color: #71717a;">This code is valid for 10 minutes. Do not share it with anyone.</p>
-        </div>
-      `,
-    });
+        `,
+      });
+      console.log(`✅ [SMTP SUCCESS] Email OTP delivered to ${email}`);
+      return;
+    } catch (smtpErr) {
+      console.warn('⚠️ [SMTP FAILED]:', smtpErr.message);
+    }
   }
+
+  console.warn(`⚠️ Fallback: OTP ${otp} generated for ${email}. Check Render Logs if email credentials are missing.`);
 };
 
 // @desc    Auth user & get token (Login via Password)
@@ -369,7 +392,7 @@ const updateUserProfile = async (req, res) => {
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0] || 'field';
       return res.status(400).json({
-        message: `This ${field} is already registered to another account.`
+        message: `This ${field} is already registered to another account.`,
       });
     }
     res.status(400).json({ message: error.message });
