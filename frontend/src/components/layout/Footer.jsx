@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiShieldCheck, FiTruck, FiRefreshCw, FiLock } from 'react-icons/fi';
+import { FiShield, FiTruck, FiRefreshCw, FiLock } from 'react-icons/fi';
 
 const Footer = () => {
   return (
@@ -9,7 +9,7 @@ const Footer = () => {
         {/* Trust Badges */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-zinc-800/80 pb-8 text-center md:text-left">
           <div className="flex items-center gap-3">
-            <FiShieldCheck size={28} className="text-white flex-shrink-0" />
+            <FiShield size={28} className="text-white flex-shrink-0" />
             <div>
               <p className="text-xs font-bold text-white uppercase">100% Authentic</p>
               <p className="text-[11px] text-zinc-500">Premium Uniform Quality</p>
