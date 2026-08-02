@@ -75,7 +75,7 @@ const Footer = () => {
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase text-white tracking-wider">Help & Contact</p>
             <p className="text-xs text-zinc-400">Rupaspur, Bailey Road, Patna, Bihar - 801503</p>
-            <p className="text-xs text-zinc-400">Email: <a href="mailto:orders@royaltailors.net" className="text-white hover:underline">orders@royaltailors.net</a></p>
+            <p className="text-xs text-zinc-400">Email: <a href="mailto:support@royaltailors.net" className="text-white hover:underline">orders@royaltailors.net</a></p>
             <div className="pt-2">
               <Link to="/contact" className="inline-block bg-zinc-900 border border-zinc-700 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors">
                 Visit Help Center
