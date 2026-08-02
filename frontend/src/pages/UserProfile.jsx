@@ -222,7 +222,7 @@ const UserProfile = () => {
 
                 <button
                   type="button"
-                  onClick={() => alert("Order History will list your recent uniforms.")}
+                  onClick={() => navigate('/orders')}
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors cursor-pointer"
                 >
                   <span className="flex items-center"><FiPackage className="mr-3.5 text-zinc-400" size={18} /> Order History</span>
@@ -231,7 +231,7 @@ const UserProfile = () => {
 
                 <button
                   type="button"
-                  onClick={() => alert("Settings panel.")}
+                  onClick={() => setView('edit-profile')}
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors cursor-pointer"
                 >
                   <span className="flex items-center"><FiSettings className="mr-3.5 text-zinc-400" size={18} /> Settings</span>
@@ -240,7 +240,7 @@ const UserProfile = () => {
 
                 <button
                   type="button"
-                  onClick={() => window.location.href = 'mailto:support@royaltailors.net'}
+                  onClick={() => navigate('/contact')}
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors cursor-pointer"
                 >
                   <span className="flex items-center"><FiMail className="mr-3.5 text-zinc-400" size={18} /> Contact Us</span>
@@ -254,25 +254,41 @@ const UserProfile = () => {
               <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 px-1">Legal Policies</h3>
               
               <div className="space-y-1 text-sm font-semibold">
-                <a href="/terms" className="flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => navigate('/terms')} 
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
+                >
                   <span className="flex items-center"><FiFileText className="mr-3.5 text-zinc-400" size={18} /> Terms and Conditions</span>
                   <FiChevronRight className="text-zinc-500" />
-                </a>
+                </button>
 
-                <a href="/privacy" className="flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => navigate('/privacy')} 
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
+                >
                   <span className="flex items-center"><FiShield className="mr-3.5 text-zinc-400" size={18} /> Privacy Policy</span>
                   <FiChevronRight className="text-zinc-500" />
-                </a>
+                </button>
 
-                <a href="/cancellation" className="flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => navigate('/cancellation')} 
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
+                >
                   <span className="flex items-center"><FiRefreshCw className="mr-3.5 text-zinc-400" size={18} /> Cancellation Policy</span>
                   <FiChevronRight className="text-zinc-500" />
-                </a>
+                </button>
 
-                <a href="/shipping" className="flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors">
+                <button 
+                  type="button"
+                  onClick={() => navigate('/shipping')} 
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
+                >
                   <span className="flex items-center"><FiTruck className="mr-3.5 text-zinc-400" size={18} /> Shipping Policy</span>
                   <FiChevronRight className="text-zinc-500" />
-                </a>
+                </button>
               </div>
             </div>
 
