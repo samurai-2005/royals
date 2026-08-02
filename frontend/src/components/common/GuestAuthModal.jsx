@@ -6,20 +6,25 @@ const GuestAuthModal = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [prevPath, setPrevPath] = useState(location.pathname);
+
+  // Official React pattern: Reset state during render when route changes (prevents cascading re-renders)
+  if (prevPath !== location.pathname) {
+    setPrevPath(location.pathname);
+    setIsOpen(false);
+  }
 
   useEffect(() => {
     const userInfo = localStorage.getItem('userInfo');
     const isLoginPage = location.pathname === '/login';
 
-    // Show auth prompt for guests navigating around the site (catalog, deals, product, cart)
+    // Show auth prompt for guests navigating around the site
     if (!userInfo && !isLoginPage) {
       const timer = setTimeout(() => {
         setIsOpen(true);
       }, 1500); // Pops up 1.5 seconds after landing/exploring
 
       return () => clearTimeout(timer);
-    } else {
-      setIsOpen(false);
     }
   }, [location.pathname]);
 
@@ -32,7 +37,7 @@ const GuestAuthModal = () => {
         {/* Dismiss Button */}
         <button 
           onClick={() => setIsOpen(false)}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-white p-1 rounded-lg transition-colors"
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
         >
           <FiX size={20} />
         </button>
@@ -56,14 +61,14 @@ const GuestAuthModal = () => {
               setIsOpen(false);
               navigate('/login');
             }}
-            className="w-full bg-white text-black font-black py-3.5 rounded-xl hover:bg-zinc-200 transition-colors text-sm shadow-lg flex items-center justify-center gap-2"
+            className="w-full bg-white text-black font-black py-3.5 rounded-xl hover:bg-zinc-200 transition-colors text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer"
           >
             <FiUserCheck size={18} /> Sign In / Register Now
           </button>
 
           <button
             onClick={() => setIsOpen(false)}
-            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold py-2.5 rounded-xl transition-colors text-xs"
+            className="w-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white font-bold py-2.5 rounded-xl transition-colors text-xs cursor-pointer"
           >
             Continue Browsing as Guest
           </button>
