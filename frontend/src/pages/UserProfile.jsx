@@ -10,7 +10,8 @@ import {
   FiChevronRight, 
   FiShield,
   FiLoader,
-  FiCamera
+  FiCamera,
+  FiMail
 } from 'react-icons/fi';
 
 const UserProfile = () => {
@@ -141,21 +142,25 @@ const UserProfile = () => {
             <div className="flex items-center text-white"><FiPackage className="mr-3 text-zinc-400" size={18} /> Order History</div>
             <FiChevronRight className="text-zinc-600" />
           </button>
-          <button onClick={() => setActiveView('settings')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
+          <button onClick={() => setActiveView('settings')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-white"><FiSettings className="mr-3 text-zinc-400" size={18} /> Settings</div>
             <FiChevronRight className="text-zinc-600" />
           </button>
+          <Link to="/contact" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
+            <div className="flex items-center text-white"><FiMail className="mr-3 text-zinc-400" size={18} /> Contact Us</div>
+            <FiChevronRight className="text-zinc-600" />
+          </Link>
         </div>
       </div>
 
       <div>
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Legal Policies</h2>
         <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden">
-          <Link to="/terms" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
+          <Link to="/terms-and-conditions" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Terms and Conditions</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
-          <Link to="/privacy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
+          <Link to="/privacy-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-zinc-300"><FiShield className="mr-3 text-zinc-500" size={18} /> Privacy Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
