@@ -14,30 +14,40 @@ export const CartProvider = ({ children }) => {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // Whenever cartItems change, sync them to localStorage so they survive page refreshes
+  // Sync cart state to localStorage on every update
   useEffect(() => {
     localStorage.setItem('cartItems', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product, size, qty = 1) => {
+  const addToCart = (product, sizeArg, qtyArg) => {
+    // 💡 Smart parameter resolution: Works with object payloads or positional arguments
+    const targetSize =
+      (typeof sizeArg === 'string' && sizeArg) ||
+      product.size ||
+      'M';
+
+    const targetQty =
+      (typeof sizeArg === 'number' ? sizeArg : qtyArg) ||
+      product.qty ||
+      1;
+
     setCartItems((prevItems) => {
       const existingItem = prevItems.find(
-        (item) => item._id === product._id && item.size === size
+        (item) => item._id === product._id && item.size === targetSize
       );
 
       if (existingItem) {
         return prevItems.map((item) =>
-          item._id === product._id && item.size === size
-            ? { ...item, qty: item.qty + qty }
+          item._id === product._id && item.size === targetSize
+            ? { ...item, qty: item.qty + targetQty }
             : item
         );
       } else {
-        return [...prevItems, { ...product, size, qty }];
+        return [...prevItems, { ...product, size: targetSize, qty: targetQty }];
       }
     });
   };
 
-  // ADDED: Quantity increment/decrement update handler
   const updateQty = (productId, size, newQty) => {
     if (newQty < 1) return;
     setCartItems((prevItems) =>
@@ -63,15 +73,15 @@ export const CartProvider = ({ children }) => {
   const cartCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
 
   return (
-    <CartContext.Provider 
-      value={{ 
-        cartItems, 
-        addToCart, 
-        updateQty, 
-        removeFromCart, 
-        clearCart, 
-        cartTotal, 
-        cartCount 
+    <CartContext.Provider
+      value={{
+        cartItems,
+        addToCart,
+        updateQty,
+        removeFromCart,
+        clearCart,
+        cartTotal,
+        cartCount,
       }}
     >
       {children}
