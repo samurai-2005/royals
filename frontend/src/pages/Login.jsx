@@ -38,10 +38,10 @@ const Login = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  // Redirect if already logged in
+  // Redirect to Home Page if already logged in
   useEffect(() => {
     if (localStorage.getItem('userInfo')) {
-      navigate('/user-profile');
+      navigate('/');
     }
   }, [navigate]);
 
@@ -94,7 +94,7 @@ const Login = () => {
     }
   };
 
-  // Step 2: Verify OTP & Complete Login
+  // Step 2: Verify OTP & Complete Login -> Redirect to Home Page
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -107,7 +107,7 @@ const Login = () => {
       });
 
       localStorage.setItem('userInfo', JSON.stringify(data));
-      navigate('/user-profile');
+      navigate('/'); // 👈 Redirects directly to Homepage upon successful OTP verification
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid or expired OTP code.');
     } finally {
@@ -115,7 +115,7 @@ const Login = () => {
     }
   };
 
-  // Password Login Fallback
+  // Password Login Fallback -> Redirect to Home Page
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setError('');
@@ -128,7 +128,7 @@ const Login = () => {
       });
 
       localStorage.setItem('userInfo', JSON.stringify(data));
-      navigate('/user-profile');
+      navigate('/'); // 👈 Redirects directly to Homepage upon successful password sign-in
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
@@ -173,7 +173,7 @@ const Login = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-amber-600/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-      {/* Back to Shop */}
+      {/* Back to Store */}
       <button 
         onClick={() => navigate('/')} 
         className="absolute top-6 left-6 flex items-center gap-2 text-zinc-400 hover:text-amber-400 text-xs font-bold transition-all cursor-pointer z-10 bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-xl backdrop-blur-md hover:border-amber-500/30"
@@ -249,7 +249,7 @@ const Login = () => {
                       required
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="e.g. 9876543210 or name@gmail.com"
+                      placeholder="e.g. 9304566723 or name@gmail.com"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3.5 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
                     />
                   </div>
@@ -393,7 +393,7 @@ const Login = () => {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Aman Yadav"
+                  placeholder="e.g. Aarav Sharma"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
                 />
               </div>
@@ -410,7 +410,7 @@ const Login = () => {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="9976543218"
+                  placeholder="9304566723"
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
                 />
               </div>
