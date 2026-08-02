@@ -49,7 +49,7 @@ const Contact = () => {
             </div>
             <div>
               <h3 className="font-bold text-white text-base">Email Us</h3>
-              <p className="text-sm text-zinc-400 mt-1">orders@royaltailors.net</p>
+              <p className="text-sm text-zinc-400 mt-1">support@royaltailors.net</p>
               <p className="text-xs text-zinc-500 mt-0.5">Response within 24 hours</p>
             </div>
           </div>
@@ -60,7 +60,7 @@ const Contact = () => {
             </div>
             <div>
               <h3 className="font-bold text-white text-base">Phone / WhatsApp</h3>
-              <p className="text-sm text-zinc-400 mt-1">+91 98765 43210</p>
+              <p className="text-sm text-zinc-400 mt-1">+91 9576793770</p>
               <p className="text-xs text-zinc-500 mt-0.5">Mon - Sat: 10:00 AM - 7:00 PM IST</p>
             </div>
           </div>
