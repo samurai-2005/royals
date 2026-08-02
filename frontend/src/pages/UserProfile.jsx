@@ -39,6 +39,11 @@ const UserProfile = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpStatus, setOtpStatus] = useState({ type: '', message: '' });
 
+  // Unified Policy Navigation Handler (Supports route state and direct paths)
+  const handlePolicyNavigate = (policyKey) => {
+    navigate('/policy', { state: { policy: policyKey, type: policyKey } });
+  };
+
   // 1. SAVE PROFILE CHANGES HANDLER
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -256,7 +261,7 @@ const UserProfile = () => {
               <div className="space-y-1 text-sm font-semibold">
                 <button 
                   type="button"
-                  onClick={() => navigate('/terms')} 
+                  onClick={() => handlePolicyNavigate('terms')} 
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
                 >
                   <span className="flex items-center"><FiFileText className="mr-3.5 text-zinc-400" size={18} /> Terms and Conditions</span>
@@ -265,7 +270,7 @@ const UserProfile = () => {
 
                 <button 
                   type="button"
-                  onClick={() => navigate('/privacy')} 
+                  onClick={() => handlePolicyNavigate('privacy')} 
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
                 >
                   <span className="flex items-center"><FiShield className="mr-3.5 text-zinc-400" size={18} /> Privacy Policy</span>
@@ -274,7 +279,7 @@ const UserProfile = () => {
 
                 <button 
                   type="button"
-                  onClick={() => navigate('/cancellation')} 
+                  onClick={() => handlePolicyNavigate('cancellation')} 
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
                 >
                   <span className="flex items-center"><FiRefreshCw className="mr-3.5 text-zinc-400" size={18} /> Cancellation Policy</span>
@@ -283,7 +288,7 @@ const UserProfile = () => {
 
                 <button 
                   type="button"
-                  onClick={() => navigate('/shipping')} 
+                  onClick={() => handlePolicyNavigate('shipping')} 
                   className="w-full flex items-center justify-between p-3.5 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors text-left cursor-pointer"
                 >
                   <span className="flex items-center"><FiTruck className="mr-3.5 text-zinc-400" size={18} /> Shipping Policy</span>
