@@ -9,7 +9,7 @@ const policies = {
     sections: [
       {
         heading: '1. Order Cancellation',
-        content: `Orders can be cancelled within 12 hours of placement or prior to dispatch by emailing orders@royaltailors.net. Once dispatched via Shiprocket, orders cannot be cancelled.`
+        content: `Orders can be cancelled within 12 hours of placement or prior to dispatch by emailing support@royaltailors.net. Once dispatched via Shiprocket, orders cannot be cancelled.`
       },
       {
         heading: '2. Returns & Exchanges',
@@ -88,44 +88,42 @@ const PolicyPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPolicy = policies[location.pathname] || policies['/refund-policy'];
-  
-  // Check if user came from User Profile
-  const fromProfile = location.state?.fromProfile;
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto text-white pb-28">
+    <div className="max-w-4xl mx-auto text-white pb-28">
       
-      {/* Dynamic Header Controls */}
-      {fromProfile ? (
-        /* Render "Back to Profile" button if navigated from Profile */
-        <button
-          onClick={() => navigate('/user-profile')}
-          className="mb-6 flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-md"
+      {/* Navigation Top Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-zinc-800 pb-4">
+        
+        {/* Go Back Button */}
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm w-fit"
         >
-          <FiArrowLeft size={16} /> Back to Profile
+          <FiArrowLeft size={16} /> Go Back
         </button>
-      ) : (
-        /* Render 4 Policy Toggle Tabs if navigated from Footer */
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-zinc-800 pb-4">
+
+        {/* Policy Selector Tabs */}
+        <div className="flex flex-wrap gap-2">
           {Object.keys(policies).map((path) => (
             <Link
               key={path}
               to={path}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                 location.pathname === path 
-                  ? 'bg-white text-black' 
+                  ? 'bg-white text-black shadow-md' 
                   : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
               }`}
             >
-              {policies[path].title}
+              {policies[path].title.split(' ')[0]} Policy
             </Link>
           ))}
         </div>
-      )}
+      </div>
 
       {/* Header Banner */}
       <div className="bg-[#18181b] border border-zinc-800 p-6 md:p-8 rounded-2xl mb-6 shadow-xl flex items-center gap-4">
-        <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 text-white">
+        <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 text-white flex-shrink-0">
           {currentPolicy.icon}
         </div>
         <div>

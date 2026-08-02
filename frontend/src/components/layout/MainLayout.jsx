@@ -8,38 +8,48 @@ import Footer from './Footer';
 const MainLayout = () => {
   const location = useLocation();
 
-  // Hide right sidebar ONLY on specific workspace/profile routes
+  // Pages that should be full-width without ANY sidebars
+  const isStandalonePage = 
+    location.pathname.startsWith('/contact') ||
+    location.pathname.includes('policy') ||
+    location.pathname.includes('terms');
+
+  const hideLeftSidebar = isStandalonePage;
+
+  // Pages that hide right sidebar
   const hideRightSidebar = 
     location.pathname.startsWith('/profile') || 
     location.pathname.startsWith('/user-profile') || 
-    location.pathname.startsWith('/checkout');
+    location.pathname.startsWith('/checkout') ||
+    isStandalonePage;
 
   return (
     <div className="flex flex-col h-screen bg-[#0f0f0f] text-white overflow-hidden pb-[76px] md:pb-0">
       
-      {/* Top Nav (Handles both Mobile & PC responsive layouts) */}
+      {/* Top Navbar */}
       <Navbar />
 
-      {/* Main Content Shell */}
+      {/* Main Shell */}
       <div className="flex flex-1 overflow-hidden relative">
         
         {/* Left Sidebar (Desktop) */}
-        <div className="hidden md:block">
-          <LeftSidebar />
-        </div>
+        {!hideLeftSidebar && (
+          <div className="hidden md:block">
+            <LeftSidebar />
+          </div>
+        )}
 
-        {/* Scrollable Main Area */}
-        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-3 md:p-6 relative scrollbar-hide flex flex-col min-h-full">
-          {/* Page Content */}
-          <div className="flex-1 w-full max-w-7xl mx-auto">
+        {/* Scrollable Main Area (Centered & Full-Width on Standalone pages) */}
+        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-4 md:p-8 relative scrollbar-hide flex flex-col min-h-full">
+          <div className="flex-1 w-full max-w-5xl mx-auto">
             <Outlet /> 
           </div>
 
-          {/* Footer sits naturally at the end of page content */}
+          {/* Footer */}
           <Footer />
         </main>
 
-        {/* Conditionally render Right Sidebar */}
+        {/* Right Sidebar (Desktop) */}
         {!hideRightSidebar && (
           <div className="hidden lg:block">
             <RightSidebar />
@@ -48,7 +58,7 @@ const MainLayout = () => {
         
       </div>
 
-      {/* Fixed Mobile Bottom Navigation */}
+      {/* Mobile Bottom Nav */}
       <MobileBottomNav />
 
     </div>
