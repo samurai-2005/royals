@@ -1,6 +1,8 @@
-const User = require('../models/User');
+const RawUser = require('../models/User');
+const User = RawUser.default || RawUser;
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 // Helper function to generate JWT token
 const generateToken = (id) => {
@@ -14,9 +16,52 @@ const generate6DigitOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Helper: Send OTP via Custom Domain SMTP (Zoho / Webmail)
+// Helper: Send OTP via Fast2SMS Gateway (with Zoho Email Fallback)
 const dispatchOTP = async ({ email, phone, otp, channel }) => {
-  if (channel === 'email' || !channel) {
+  console.log(`\n🔑 [OTP GENERATED] -> Code: ${otp} | Target: ${channel === 'sms' ? phone : email}\n`);
+
+  let smsSuccess = false;
+
+  // --- 1. FAST2SMS DISPATCH (When channel === 'sms') ---
+  if (channel === 'sms' && phone) {
+    const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
+
+    if (process.env.FAST2SMS_API_KEY) {
+      try {
+        // Fast2SMS API V2 Specification
+        const response = await axios.get('https://www.fast2sms.com/dev/bulkV2', {
+          headers: {
+            Authorization: process.env.FAST2SMS_API_KEY, // Fast2SMS Header Authorization
+          },
+          params: {
+            variables_values: otp,
+            route: 'otp',
+            numbers: cleanPhone,
+          },
+        });
+
+        if (response.data && response.data.return) {
+          console.log(`✅ [FAST2SMS SUCCESS] OTP delivered to +91 ${cleanPhone}`);
+          smsSuccess = true;
+          return;
+        } else {
+          console.warn(`⚠️ [FAST2SMS WARN]: ${response.data.message || 'Status 996 (Website verification pending)'}`);
+        }
+      } catch (smsErr) {
+        console.warn('⚠️ [FAST2SMS REQUEST FAILED]:', smsErr.response?.data?.message || smsErr.message);
+      }
+    } else {
+      console.warn('⚠️ FAST2SMS_API_KEY missing from .env file.');
+    }
+  }
+
+  // --- 2. ZOHO EMAIL FALLBACK ---
+  // Runs if channel === 'email' OR if Fast2SMS fails / pending domain approval
+  if (!smsSuccess) {
+    if (channel === 'sms') {
+      console.log(`📡 [FALLBACK TRIGGERED] Sending OTP code ${otp} to registered Email: ${email}`);
+    }
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 465,
@@ -34,16 +79,14 @@ const dispatchOTP = async ({ email, phone, otp, channel }) => {
       html: `
         <div style="font-family: Arial, sans-serif; padding: 24px; background: #0f0f0f; color: #ffffff; border-radius: 12px; max-width: 500px; margin: 0 auto;">
           <h2 style="margin: 0 0 12px 0; letter-spacing: 1px;">THE ROYAL TAILOR</h2>
-          <p style="color: #a1a1aa; font-size: 14px;">Your 6-digit login verification OTP code is:</p>
+          <p style="color: #a1a1aa; font-size: 14px;">Your 6-digit verification code is:</p>
           <div style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffffff; background: #18181b; padding: 12px 20px; border-radius: 8px; display: inline-block; margin: 16px 0; border: 1px solid #27272a;">
             ${otp}
           </div>
-          <p style="font-size: 12px; color: #71717a;">This code is valid for 10 minutes. Please do not share it with anyone.</p>
+          <p style="font-size: 12px; color: #71717a;">This code is valid for 10 minutes. Do not share it with anyone.</p>
         </div>
       `,
     });
-  } else if (channel === 'sms') {
-    console.log(`[SMS GATEWAY] Sending OTP ${otp} to Mobile: ${phone}`);
   }
 };
 
@@ -52,7 +95,6 @@ const dispatchOTP = async ({ email, phone, otp, channel }) => {
 const authUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // Search by either Email OR Phone
     const user = await User.findOne({
       $or: [{ email }, { phone: email }],
     });
@@ -62,9 +104,12 @@ const authUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone,
+        phone: user.phone || '',
         role: user.role,
         isAdmin: user.role === 'admin' || user.isAdmin === true,
+        isVerified: user.isVerified || false,
+        isEmailVerified: user.isEmailVerified || false,
+        isPhoneVerified: user.isPhoneVerified || false,
         profilePicture: user.profilePicture,
         token: generateToken(user._id),
       });
@@ -83,7 +128,7 @@ const registerUser = async (req, res) => {
     const { name, email, phone, password } = req.body;
 
     if (!email || !phone) {
-      return res.status(400).json({ message: 'Both Mobile Number and Email Address are strictly required.' });
+      return res.status(400).json({ message: 'Both Mobile Number and Email Address are strictly required to create an account.' });
     }
 
     const userExists = await User.findOne({
@@ -91,17 +136,16 @@ const registerUser = async (req, res) => {
     });
 
     if (userExists) {
-      return res.status(400).json({ message: 'User with this Email or Mobile Number already exists' });
+      return res.status(400).json({ message: 'User with this Email or Mobile Number already exists.' });
     }
 
     const otpCode = generate6DigitOTP();
 
-    // Send OTP first to ensure email dispatch works BEFORE creating user
     try {
       await dispatchOTP({ email, phone, otp: otpCode, channel: 'email' });
     } catch (mailError) {
       console.error('Email Dispatch Failed:', mailError);
-      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address or try again.' });
+      return res.status(500).json({ message: 'Failed to send OTP email. Please verify your email address.' });
     }
 
     const user = await User.create({
@@ -109,8 +153,11 @@ const registerUser = async (req, res) => {
       email,
       phone,
       password,
+      isVerified: false,
+      isEmailVerified: false,
+      isPhoneVerified: false,
       otp: otpCode,
-      otpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+      otpExpires: new Date(Date.now() + 10 * 60 * 1000),
     });
 
     res.status(201).json({
@@ -120,8 +167,11 @@ const registerUser = async (req, res) => {
       phone: user.phone,
       role: user.role,
       isAdmin: user.role === 'admin' || user.isAdmin === true,
+      isVerified: user.isVerified,
+      isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
       profilePicture: user.profilePicture,
-      message: 'Account created! Verification OTP sent.',
+      message: 'Account created! Verification OTP sent to your email.',
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -169,15 +219,17 @@ const sendOtp = async (req, res) => {
     }
 
     const otpCode = generate6DigitOTP();
-    user.otp = otpCode;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-    await user.save();
+
+    await User.findByIdAndUpdate(user._id, {
+      otp: otpCode,
+      otpExpires: new Date(Date.now() + 10 * 60 * 1000),
+    });
 
     await dispatchOTP({
       email: user.email,
       phone: user.phone,
       otp: otpCode,
-      channel: channel || 'email',
+      channel: channel || (identifier.includes('@') ? 'email' : 'sms'),
     });
 
     res.json({ message: `OTP sent successfully via ${channel === 'sms' ? 'Mobile SMS' : 'Email'}.` });
@@ -186,7 +238,7 @@ const sendOtp = async (req, res) => {
   }
 };
 
-// @desc    Verify OTP Code & Issue Auth Token
+// @desc    Verify OTP Code & Mark Current Channel as Verified
 // @route   POST /api/users/verify-otp
 const verifyOtp = async (req, res) => {
   try {
@@ -207,21 +259,33 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: 'OTP has expired. Please request a new code.' });
     }
 
-    // Clear OTP fields & Mark Verified
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    user.isVerified = true;
-    await user.save();
+    const isEmail = identifier.includes('@') || identifier === user.email;
+    const updateFields = {
+      isVerified: true,
+      ...(isEmail ? { isEmailVerified: true } : { isPhoneVerified: true }),
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      {
+        $unset: { otp: 1, otpExpires: 1 },
+        $set: updateFields,
+      },
+      { returnDocument: 'after' }
+    );
 
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      isAdmin: user.role === 'admin' || user.isAdmin === true,
-      profilePicture: user.profilePicture,
-      token: generateToken(user._id),
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone || '',
+      role: updatedUser.role,
+      isAdmin: updatedUser.role === 'admin' || updatedUser.isAdmin === true,
+      isVerified: updatedUser.isVerified,
+      isEmailVerified: updatedUser.isEmailVerified,
+      isPhoneVerified: updatedUser.isPhoneVerified,
+      profilePicture: updatedUser.profilePicture,
+      token: generateToken(updatedUser._id),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -240,9 +304,12 @@ const getUserProfile = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone,
+        phone: user.phone || '',
         role: user.role,
         isAdmin: user.role === 'admin' || user.isAdmin === true,
+        isVerified: user.isVerified || false,
+        isEmailVerified: user.isEmailVerified || false,
+        isPhoneVerified: user.isPhoneVerified || false,
         profilePicture: user.profilePicture,
       });
     } else {
@@ -255,30 +322,43 @@ const getUserProfile = async (req, res) => {
 
 // @desc    Update user profile
 // @route   PUT /api/users/profile
+// @access  Private
 const updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
     if (user) {
       user.name = req.body.name || user.name;
-      user.phone = req.body.phone || user.phone;
-      
+
+      if (req.body.phone !== undefined && req.body.phone !== user.phone) {
+        user.phone = req.body.phone;
+        user.isPhoneVerified = false;
+      }
+
+      if (req.body.email !== undefined && req.body.email !== user.email) {
+        user.email = req.body.email;
+        user.isEmailVerified = false;
+      }
+
       if (req.body.profilePicture !== undefined) {
         user.profilePicture = req.body.profilePicture;
       }
 
-      const updatedUser = await user.save();
+      user.isVerified = Boolean(user.isEmailVerified || user.isPhoneVerified);
 
-      // Safely grab existing token or generate a fresh token
+      const updatedUser = await user.save();
       const existingToken = req.headers.authorization?.split(' ')[1] || generateToken(updatedUser._id);
 
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
-        phone: updatedUser.phone,
+        phone: updatedUser.phone || '',
         role: updatedUser.role,
         isAdmin: updatedUser.role === 'admin' || updatedUser.isAdmin === true,
+        isVerified: updatedUser.isVerified,
+        isEmailVerified: updatedUser.isEmailVerified || false,
+        isPhoneVerified: updatedUser.isPhoneVerified || false,
         profilePicture: updatedUser.profilePicture,
         token: existingToken,
       });
@@ -286,6 +366,12 @@ const updateUserProfile = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      return res.status(400).json({
+        message: `This ${field} is already registered to another account.`
+      });
+    }
     res.status(400).json({ message: error.message });
   }
 };

@@ -1,358 +1,350 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
 import axios from 'axios';
 import { 
   FiUser, 
   FiPackage, 
   FiSettings, 
+  FiMail, 
+  FiCheckCircle, 
   FiFileText, 
-  FiLogOut, 
-  FiChevronRight, 
-  FiShield,
-  FiLoader,
-  FiCamera,
-  FiMail
+  FiShield, 
+  FiRefreshCw, 
+  FiTruck, 
+  FiChevronRight,
+  FiX 
 } from 'react-icons/fi';
 
 const UserProfile = () => {
-  const navigate = useNavigate();
-  const fileInputRef = useRef(null);
-  
-  const [activeView, setActiveView] = useState('menu');
-  const [uploading, setUploading] = useState(false);
-  
-  const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-  
-  const userInfoString = localStorage.getItem('userInfo');
-  const [user, setUser] = useState(
-    userInfoString ? JSON.parse(userInfoString) : { name: 'Guest User', email: 'guest@example.com', token: null, isAdmin: false }
-  );
+  const [userInfo, setUserInfo] = useState(() => JSON.parse(localStorage.getItem('userInfo')) || {});
+  const [activeTab, setActiveTab] = useState('edit-profile');
 
-  // Helper check for admin privileges (Handles both `isAdmin: true` and `role: "admin"`)
-  const isAdminUser = user?.isAdmin === true || user?.role === 'admin';
+  // Form Fields State
+  const [name, setName] = useState(userInfo?.name || '');
+  const [email, setEmail] = useState(userInfo?.email || '');
+  const [phone, setPhone] = useState(userInfo?.phone || '');
 
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return '';
-    if (imagePath.startsWith('http')) return imagePath;
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
-    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
-  };
+  // UI Status State
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: '', message: '' });
 
-  // Auto-sync profile with backend to verify admin status live
-  useEffect(() => {
-    const syncProfileData = async () => {
-      if (!user?.token) return;
-      try {
-        const config = { headers: { Authorization: `Bearer ${user.token}` } };
-        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, config);
-        
-        // Preserve JWT token while updating profile data
-        const updatedUser = { ...data, token: user.token };
-        setUser(updatedUser);
-        localStorage.setItem('userInfo', JSON.stringify(updatedUser));
-      } catch (error) {
-        console.error("Failed to sync live profile data", error);
-      }
-    };
+  // OTP Verification Modal State
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [verifyingChannel, setVerifyingChannel] = useState(''); // 'email' or 'sms'
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpStatus, setOtpStatus] = useState({ type: '', message: '' });
 
-    syncProfileData();
-  }, [user.token]);
+  // 1. SAVE PROFILE CHANGES HANDLER
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus({ type: '', message: '' });
 
-  useEffect(() => {
-    if (activeView === 'orders' && user?.token) {
-      const fetchMyOrders = async () => {
-        setLoadingOrders(true);
-        try {
-          const config = { headers: { Authorization: `Bearer ${user.token}` } };
-          const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders/myorders`, config);
-          setOrders(data);
-        } catch (error) {
-          console.error("Failed to fetch orders", error);
-        } finally {
-          setLoadingOrders(false);
-        }
-      };
-      fetchMyOrders();
-    }
-  }, [activeView, user]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('userInfo');
-    navigate('/login');
-  };
-
-  const uploadProfilePicture = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
     try {
-      const fileData = new FormData();
-      fileData.append('image', file);
-      
-      const uploadConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
-      const { data: imagePath } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/upload`, fileData, uploadConfig);
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo.token}`,
+        },
+      };
 
-      const userConfig = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data: updatedUser } = await axios.put(
-        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, 
-        { profilePicture: imagePath }, 
-        userConfig
+      const { data } = await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/users/profile`,
+        { name, email, phone },
+        config
       );
 
-      const mergedUser = { ...updatedUser, token: user.token };
-      setUser(mergedUser);
-      localStorage.setItem('userInfo', JSON.stringify(mergedUser));
-      
+      // Save updated details into localStorage
+      const updatedUserInfo = { ...userInfo, ...data, token: userInfo.token };
+      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+      setUserInfo(updatedUserInfo);
+
+      setStatus({ type: 'success', message: 'Profile updated successfully!' });
     } catch (error) {
-      console.error("Error uploading profile picture:", error);
-      alert("Failed to upload image. Please try again.");
+      setStatus({
+        type: 'error',
+        message: error.response?.data?.message || 'Failed to update profile.',
+      });
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
-  const renderMenu = () => (
-    <div className="space-y-6">
-      
-      {/* ADMIN CONTROL BANNER (Visible if user is admin) */}
-      {isAdminUser && (
-        <div className="mb-6">
-          <Link 
-            to="/profile" 
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black p-4 rounded-xl flex items-center justify-between shadow-lg transition-colors border border-amber-400"
-          >
-            <span className="flex items-center gap-2 text-sm">
-              <FiShield size={20} /> Open Admin Dashboard
-            </span>
-            <FiChevronRight size={20} />
-          </Link>
-        </div>
-      )}
+  // 2. TRIGGER OTP DISPATCH HANDLER
+  const handleSendVerificationOTP = async (channel) => {
+    const identifier = channel === 'email' ? email : phone;
+    if (!identifier) {
+      alert(`Please enter a valid ${channel === 'email' ? 'Email Address' : 'Mobile Phone Number'} first.`);
+      return;
+    }
 
-      <div>
-        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Account</h2>
-        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden shadow-md">
-          <button onClick={() => setActiveView('edit')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-white"><FiUser className="mr-3 text-zinc-400" size={18} /> Edit Profile</div>
-            <FiChevronRight className="text-zinc-600" />
-          </button>
-          <button onClick={() => setActiveView('orders')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-white"><FiPackage className="mr-3 text-zinc-400" size={18} /> Order History</div>
-            <FiChevronRight className="text-zinc-600" />
-          </button>
-          <button onClick={() => setActiveView('settings')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-white"><FiSettings className="mr-3 text-zinc-400" size={18} /> Settings</div>
-            <FiChevronRight className="text-zinc-600" />
-          </button>
-          <Link to="/contact" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
-            <div className="flex items-center text-white"><FiMail className="mr-3 text-zinc-400" size={18} /> Contact Us</div>
-            <FiChevronRight className="text-zinc-600" />
-          </Link>
-        </div>
-      </div>
+    setVerifyingChannel(channel);
+    setOtpLoading(true);
+    setOtpStatus({ type: '', message: '' });
 
-      <div>
-        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Legal Policies</h2>
-        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden shadow-md">
-          <Link to="/terms-and-conditions" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Terms and Conditions</div>
-            <FiChevronRight className="text-zinc-600" />
-          </Link>
-          <Link to="/privacy-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-zinc-300"><FiShield className="mr-3 text-zinc-500" size={18} /> Privacy Policy</div>
-            <FiChevronRight className="text-zinc-600" />
-          </Link>
-          <Link to="/refund-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
-            <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Cancellation Policy</div>
-            <FiChevronRight className="text-zinc-600" />
-          </Link>
-          <Link to="/shipping-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
-            <div className="flex items-center text-zinc-300"><FiPackage className="mr-3 text-zinc-500" size={18} /> Shipping Policy</div>
-            <FiChevronRight className="text-zinc-600" />
-          </Link>
-        </div>
-      </div>
+    try {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/send-otp`, {
+        identifier,
+        channel,
+      });
 
-      <button 
-        onClick={handleLogout}
-        className="w-full flex items-center justify-center p-4 bg-red-900/10 border border-red-900/30 text-red-500 rounded-xl font-bold hover:bg-red-900/20 transition-colors mt-8 shadow-sm"
-      >
-        <FiLogOut className="mr-2" size={18} /> Secure Logout
-      </button>
+      setOtpModalOpen(true);
+      setOtpStatus({ type: 'success', message: `6-digit verification code sent to ${identifier}` });
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to send verification OTP.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
-    </div>
-  );
+  // 3. VERIFY OTP CODE HANDLER
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.length !== 6) {
+      setOtpStatus({ type: 'error', message: 'Please enter a valid 6-digit OTP.' });
+      return;
+    }
 
-  const renderOrders = () => (
-    <div className="animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Order History</h2>
-        <button onClick={() => setActiveView('menu')} className="text-sm text-zinc-400 hover:text-white md:hidden">Back</button>
-      </div>
-      
-      {loadingOrders ? (
-        <div className="flex justify-center items-center h-32 text-zinc-400">
-          <FiLoader className="animate-spin mr-2" size={20} /> Loading orders...
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-8 text-center text-zinc-500">
-          You haven't placed any orders yet.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {orders.map(order => (
-            <div key={order._id} className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 flex flex-col gap-4 shadow-lg">
-              <div className="flex justify-between items-start border-b border-zinc-800/80 pb-3">
-                <div>
-                  <p className="text-white font-bold text-sm">#{order._id.substring(18).toUpperCase()}</p>
-                  <p className="text-xs text-zinc-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-black text-sm">Rs {order.totalPrice}</p>
-                  <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded mt-1 ${
-                    order.status === 'Processing' ? 'bg-yellow-900/30 text-yellow-500 border border-yellow-900/50' :
-                    order.status === 'Shipped' ? 'bg-blue-900/30 text-blue-400 border border-blue-900/50' :
-                    order.status === 'Out for Delivery' ? 'bg-purple-900/30 text-purple-400 border border-purple-900/50' :
-                    'bg-green-900/30 text-green-400 border border-green-900/50'
-                  }`}>
-                    {order.status}
-                  </span>
-                </div>
-              </div>
+    setOtpLoading(true);
+    setOtpStatus({ type: '', message: '' });
 
-              <div className="space-y-3">
-                {order.orderItems.map((item, index) => {
-                  const imgUrl = getImageUrl(item.image);
-                  return (
-                    <div key={index} className="flex items-center justify-between gap-3 bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-zinc-900 rounded border border-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                          {imgUrl ? (
-                            <img src={imgUrl} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <FiPackage className="text-zinc-600" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs md:text-sm font-bold text-white">{item.name}</p>
-                          <p className="text-[11px] text-zinc-400">Size: {item.size} • Qty: {item.qty}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs font-bold text-zinc-300">Rs {item.price * item.qty}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    const identifier = verifyingChannel === 'email' ? email : phone;
 
-  const renderEditProfile = () => (
-    <div className="animate-fade-in">
-       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Edit Profile</h2>
-        <button onClick={() => setActiveView('menu')} className="text-sm text-zinc-400 hover:text-white md:hidden">Back</button>
-      </div>
-      <form className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 space-y-4 shadow-lg">
-        <div>
-          <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Full Name</label>
-          <input type="text" defaultValue={user.name} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Email Address</label>
-          <input type="email" defaultValue={user.email} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-400 cursor-not-allowed text-sm" disabled />
-          <p className="text-[10px] text-zinc-500 mt-1">Email cannot be changed.</p>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Phone Number</label>
-          <input type="tel" placeholder="+91" className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm" />
-        </div>
-        <button type="button" className="w-full bg-white text-black font-bold py-3.5 rounded-xl mt-4 hover:bg-zinc-200 transition-colors shadow-md text-sm">
-          Save Changes
-        </button>
-      </form>
-    </div>
-  );
+    try {
+      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-otp`, {
+        identifier,
+        otp: otpCode,
+      });
+
+      // Update Local Storage and State
+      const updatedUserInfo = { ...userInfo, ...data, token: userInfo.token };
+      localStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
+      setUserInfo(updatedUserInfo);
+
+      setOtpModalOpen(false);
+      setOtpCode('');
+      setStatus({
+        type: 'success',
+        message: `${verifyingChannel === 'email' ? 'Email Address' : 'Mobile Phone'} verified successfully!`,
+      });
+    } catch (error) {
+      setOtpStatus({
+        type: 'error',
+        message: error.response?.data?.message || 'Invalid or expired OTP code.',
+      });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto pb-24 md:pb-8">
-      
-      {/* Hidden File Input */}
-      <input 
-        type="file" 
-        accept="image/*" 
-        ref={fileInputRef} 
-        onChange={uploadProfilePicture} 
-        className="hidden" 
-      />
-
-      {/* Header Profile Section */}
-      <div className="flex items-center space-x-5 mb-8 md:mb-10">
+    <div className="min-h-screen bg-[#0f0f0f] text-white p-6 md:p-12 relative">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        {/* Tapable Avatar Container */}
-        <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform flex-shrink-0"
-          title="Tap to change profile picture"
-        >
-          {uploading ? (
-            <FiLoader size={24} className="text-white animate-spin" />
-          ) : user.profilePicture ? (
-            <img src={getImageUrl(user.profilePicture)} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-          ) : (
-            <FiUser size={32} className="text-zinc-400" />
-          )}
+        {/* LEFT SUB-NAVIGATION */}
+        <div className="space-y-6">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Account</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setActiveTab('edit-profile')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-semibold transition-colors ${
+                  activeTab === 'edit-profile' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                }`}
+              >
+                <span className="flex items-center"><FiUser className="mr-3" /> Edit Profile</span>
+                <FiChevronRight />
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-semibold transition-colors ${
+                  activeTab === 'orders' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                }`}
+              >
+                <span className="flex items-center"><FiPackage className="mr-3" /> Order History</span>
+                <FiChevronRight />
+              </button>
 
-          {/* Touch-Friendly Badge Icon */}
-          <div className="absolute bottom-0 right-0 bg-white text-black p-1.5 rounded-full shadow-md border border-zinc-900">
-            <FiCamera size={13} />
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-semibold transition-colors ${
+                  activeTab === 'settings' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                }`}
+              >
+                <span className="flex items-center"><FiSettings className="mr-3" /> Settings</span>
+                <FiChevronRight />
+              </button>
+
+              <button
+                onClick={() => setActiveTab('contact')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-semibold transition-colors ${
+                  activeTab === 'contact' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                }`}
+              >
+                <span className="flex items-center"><FiMail className="mr-3" /> Contact Us</span>
+                <FiChevronRight />
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl">
+            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Legal Policies</h3>
+            <div className="space-y-2 text-sm text-zinc-400">
+              <a href="/terms" className="flex items-center justify-between p-2 hover:text-white transition-colors">
+                <span className="flex items-center"><FiFileText className="mr-3" /> Terms and Conditions</span>
+                <FiChevronRight />
+              </a>
+              <a href="/privacy" className="flex items-center justify-between p-2 hover:text-white transition-colors">
+                <span className="flex items-center"><FiShield className="mr-3" /> Privacy Policy</span>
+                <FiChevronRight />
+              </a>
+              <a href="/cancellation" className="flex items-center justify-between p-2 hover:text-white transition-colors">
+                <span className="flex items-center"><FiRefreshCw className="mr-3" /> Cancellation Policy</span>
+                <FiChevronRight />
+              </a>
+              <a href="/shipping" className="flex items-center justify-between p-2 hover:text-white transition-colors">
+                <span className="flex items-center"><FiTruck className="mr-3" /> Shipping Policy</span>
+                <FiChevronRight />
+              </a>
+            </div>
           </div>
         </div>
 
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{user.name}</h1>
-          <p className="text-sm text-zinc-400">{user.email}</p>
+        {/* RIGHT EDIT PROFILE PANEL */}
+        <div className="md:col-span-2">
+          {activeTab === 'edit-profile' && (
+            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+              
+              {status.message && (
+                <div className={`p-4 mb-6 rounded-xl text-xs font-bold ${status.type === 'success' ? 'bg-green-950/80 text-green-400 border border-green-800' : 'bg-red-950/80 text-red-400 border border-red-800'}`}>
+                  {status.message}
+                </div>
+              )}
 
-          {isAdminUser && (
-            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 rounded-full text-[10px] font-black uppercase tracking-wider">
-              <FiShield size={12} /> Administrator
-            </span>
-          )}
-        </div>
-      </div>
+              <form onSubmit={handleSaveProfile} className="space-y-6">
+                
+                {/* FULL NAME */}
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className={`w-full md:w-1/3 flex-shrink-0 ${activeView !== 'menu' ? 'hidden md:block' : 'block'}`}>
-          {renderMenu()}
-        </div>
+                {/* EMAIL ADDRESS + VERIFICATION BADGE */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Email Address</label>
+                    {userInfo?.isEmailVerified ? (
+                      <span className="text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-0.5 rounded-full font-bold flex items-center">
+                        <FiCheckCircle className="mr-1" /> Verified
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendVerificationOTP('email')}
+                        disabled={otpLoading}
+                        className="text-[11px] bg-amber-950/80 text-amber-400 border border-amber-800/80 px-2.5 py-0.5 rounded-full font-bold hover:bg-amber-900 transition-colors cursor-pointer flex items-center"
+                      >
+                        ⚠️ Not Verified — Click to Verify
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                </div>
 
-        <div className={`w-full md:w-2/3 ${activeView === 'menu' ? 'hidden md:block' : 'block'}`}>
-          {activeView === 'menu' && (
-            <div className="hidden md:flex flex-col items-center justify-center h-full text-zinc-500 border-2 border-dashed border-zinc-800 rounded-xl p-12 text-center">
-              <FiUser size={48} className="mb-4 text-zinc-700" />
-              <p>Select an option from the menu to view details.</p>
+                {/* PHONE NUMBER + VERIFICATION BADGE */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Phone Number</label>
+                    {userInfo?.isPhoneVerified ? (
+                      <span className="text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-0.5 rounded-full font-bold flex items-center">
+                        <FiCheckCircle className="mr-1" /> Verified
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendVerificationOTP('sms')}
+                        disabled={otpLoading}
+                        className="text-[11px] bg-amber-950/80 text-amber-400 border border-amber-800/80 px-2.5 py-0.5 rounded-full font-bold hover:bg-amber-900 transition-colors cursor-pointer flex items-center"
+                      >
+                        ⚠️ Not Verified — Click to Verify
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="tel"
+                    placeholder="Enter your mobile phone number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                </div>
+
+                {/* SAVE CHANGES BUTTON */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-white text-black font-black py-4 rounded-xl hover:bg-zinc-200 transition-colors shadow-lg cursor-pointer text-base disabled:opacity-50 mt-4"
+                >
+                  {loading ? 'Saving Changes...' : 'Save Changes'}
+                </button>
+              </form>
             </div>
           )}
-          {activeView === 'orders' && renderOrders()}
-          {activeView === 'edit' && renderEditProfile()}
-          {activeView === 'settings' && (
-             <div className="animate-fade-in">
-               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">App Settings</h2>
-                <button onClick={() => setActiveView('menu')} className="text-sm text-zinc-400 hover:text-white md:hidden">Back</button>
-              </div>
-               <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 text-zinc-400 text-sm shadow-lg">
-                 Settings toggles (Notifications, Dark Mode) will go here.
-               </div>
-             </div>
-          )}
         </div>
       </div>
+
+      {/* OTP VERIFICATION MODAL */}
+      {otpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setOtpModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors"
+            >
+              <FiX size={20} />
+            </button>
+
+            <h3 className="text-lg font-bold text-white mb-1">Verify {verifyingChannel === 'email' ? 'Email Address' : 'Mobile Phone'}</h3>
+            <p className="text-xs text-zinc-400 mb-6">Enter the 6-digit verification code sent to your {verifyingChannel === 'email' ? 'Email' : 'Mobile Phone'}.</p>
+
+            {otpStatus.message && (
+              <div className={`p-3 mb-4 rounded-lg text-xs font-semibold ${otpStatus.type === 'success' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
+                {otpStatus.message}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyOTP} className="space-y-4">
+              <input 
+                type="text" 
+                maxLength="6"
+                placeholder="000000"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                className="w-full bg-zinc-900 border border-zinc-700 text-center tracking-[0.5em] text-2xl font-mono text-white rounded-lg p-3 focus:outline-none focus:border-white"
+              />
+
+              <button 
+                type="submit" 
+                disabled={otpLoading}
+                className="w-full bg-white text-black font-black py-3 rounded-lg hover:bg-zinc-200 transition-colors shadow-lg cursor-pointer"
+              >
+                {otpLoading ? 'Verifying...' : 'Confirm & Verify'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

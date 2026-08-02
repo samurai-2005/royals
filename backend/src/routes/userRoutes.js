@@ -11,8 +11,9 @@ const {
   updateUserProfile,
 } = require('../controllers/userController');
 
-// Standard Authentication Routes
-router.post('/', registerUser);
+// Registration & Login Routes
+router.post('/register', registerUser); // 👈 Matches POST /api/users/register from frontend
+router.post('/', registerUser);         // Backup for POST /api/users
 router.post('/login', authUser);
 
 // OTP Verification Routes
