@@ -20,7 +20,9 @@ import Catalog from './pages/Catalog';
 import Contact from './pages/Contact';
 import PolicyPage from './pages/PolicyPage';
 
-// Global PWA Install Banner Component
+// UX Utilities & Banners
+import ScrollToTop from './components/common/ScrollToTop';
+import GuestAuthModal from './components/common/GuestAuthModal';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 
 // Fallback UI shown if a React component crashes unexpectedly
@@ -54,6 +56,9 @@ function App() {
     <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
       <CartProvider>
         <Router>
+          {/* Resets scroll position to top (0,0) on every route navigation */}
+          <ScrollToTop />
+
           <Routes>
             {/* Main Layout containing Navbar, Sidebars, and Bottom Navigation */}
             <Route path="/" element={<MainLayout />}>
@@ -73,7 +78,7 @@ function App() {
               <Route path="checkout" element={<Checkout />} />
               <Route path="user-profile" element={<UserProfile />} />
 
-              {/* Mandatory Compliance Routes for PhonePe PG Activation */}
+              {/* Compliance & Contact Routes */}
               <Route path="contact" element={<Contact />} />
               <Route path="refund-policy" element={<PolicyPage />} />
               <Route path="shipping-policy" element={<PolicyPage />} />
@@ -89,6 +94,9 @@ function App() {
             {/* Full-screen Login */}
             <Route path="/login" element={<Login />} />
           </Routes>
+
+          {/* Prompts guests navigating the site to sign in or register */}
+          <GuestAuthModal />
         </Router>
 
         {/* Renders the "Add to Home Screen" pop-up banner */}
