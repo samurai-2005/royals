@@ -1,5 +1,5 @@
-import { useLocation, Link } from 'react-router-dom';
-import { FiShield, FiFileText, FiRefreshCw, FiTruck } from 'react-icons/fi';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { FiShield, FiFileText, FiRefreshCw, FiTruck, FiArrowLeft } from 'react-icons/fi';
 
 const policies = {
   '/refund-policy': {
@@ -85,29 +85,45 @@ const policies = {
 };
 
 const PolicyPage = () => {
-  const { pathname } = useLocation();
-  const currentPolicy = policies[pathname] || policies['/refund-policy'];
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPolicy = policies[location.pathname] || policies['/refund-policy'];
+  
+  // Check if user came from User Profile
+  const fromProfile = location.state?.fromProfile;
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto text-white pb-28">
-      {/* Policy Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 border-b border-zinc-800 pb-4">
-        {Object.keys(policies).map((path) => (
-          <Link
-            key={path}
-            to={path}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-              pathname === path 
-                ? 'bg-white text-black' 
-                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-            }`}
-          >
-            {policies[path].title}
-          </Link>
-        ))}
-      </div>
+      
+      {/* Dynamic Header Controls */}
+      {fromProfile ? (
+        /* Render "Back to Profile" button if navigated from Profile */
+        <button
+          onClick={() => navigate('/user-profile')}
+          className="mb-6 flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-md"
+        >
+          <FiArrowLeft size={16} /> Back to Profile
+        </button>
+      ) : (
+        /* Render 4 Policy Toggle Tabs if navigated from Footer */
+        <div className="flex flex-wrap gap-2 mb-8 border-b border-zinc-800 pb-4">
+          {Object.keys(policies).map((path) => (
+            <Link
+              key={path}
+              to={path}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+                location.pathname === path 
+                  ? 'bg-white text-black' 
+                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+              }`}
+            >
+              {policies[path].title}
+            </Link>
+          ))}
+        </div>
+      )}
 
-      {/* Header */}
+      {/* Header Banner */}
       <div className="bg-[#18181b] border border-zinc-800 p-6 md:p-8 rounded-2xl mb-6 shadow-xl flex items-center gap-4">
         <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 text-white">
           {currentPolicy.icon}
@@ -128,7 +144,7 @@ const PolicyPage = () => {
         ))}
 
         <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-xl text-xs text-zinc-400 text-center mt-6">
-          For any questions regarding these policies, reach out to <a href="mailto:orders@royaltailors.net" className="text-white font-bold underline">orders@royaltailors.net</a> or visit our <Link to="/contact" className="text-white font-bold underline">Contact Page</Link>.
+          For any questions regarding these policies, reach out to <a href="mailto:support@royaltailors.net" className="text-white font-bold underline">orders@royaltailors.net</a> or visit our <Link to="/contact" className="text-white font-bold underline">Contact Page</Link>.
         </div>
       </div>
     </div>

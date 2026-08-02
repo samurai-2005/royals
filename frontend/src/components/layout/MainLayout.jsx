@@ -8,7 +8,7 @@ import Footer from './Footer';
 const MainLayout = () => {
   const location = useLocation();
 
-  // Hide right sidebar on specific workspace/profile routes
+  // Hide right sidebar ONLY on specific workspace/profile routes
   const hideRightSidebar = 
     location.pathname.startsWith('/profile') || 
     location.pathname.startsWith('/user-profile') || 
@@ -23,18 +23,19 @@ const MainLayout = () => {
       {/* Main Content Shell */}
       <div className="flex flex-1 overflow-hidden relative">
         
+        {/* Left Sidebar (Desktop) */}
         <div className="hidden md:block">
           <LeftSidebar />
         </div>
 
         {/* Scrollable Main Area */}
-        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-0 md:p-6 relative scrollbar-hide flex flex-col min-h-full">
+        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-3 md:p-6 relative scrollbar-hide flex flex-col min-h-full">
           {/* Page Content */}
-          <div className="flex-1">
+          <div className="flex-1 w-full max-w-7xl mx-auto">
             <Outlet /> 
           </div>
 
-          {/* Footer sits at the end of page content */}
+          {/* Footer sits naturally at the end of page content */}
           <Footer />
         </main>
 

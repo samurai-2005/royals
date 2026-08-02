@@ -133,7 +133,7 @@ const UserProfile = () => {
 
       <div>
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Account</h2>
-        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden shadow-md">
           <button onClick={() => setActiveView('edit')} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-white"><FiUser className="mr-3 text-zinc-400" size={18} /> Edit Profile</div>
             <FiChevronRight className="text-zinc-600" />
@@ -155,20 +155,20 @@ const UserProfile = () => {
 
       <div>
         <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-2">Legal Policies</h2>
-        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden">
-          <Link to="/terms-and-conditions" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
+        <div className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden shadow-md">
+          <Link to="/terms-and-conditions" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Terms and Conditions</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
-          <Link to="/privacy-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
+          <Link to="/privacy-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-zinc-300"><FiShield className="mr-3 text-zinc-500" size={18} /> Privacy Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
-          <Link to="/refund-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
+          <Link to="/refund-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50">
             <div className="flex items-center text-zinc-300"><FiFileText className="mr-3 text-zinc-500" size={18} /> Cancellation Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
-          <Link to="/shipping-policy" className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
+          <Link to="/shipping-policy" state={{ fromProfile: true }} className="w-full flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
             <div className="flex items-center text-zinc-300"><FiPackage className="mr-3 text-zinc-500" size={18} /> Shipping Policy</div>
             <FiChevronRight className="text-zinc-600" />
           </Link>
@@ -177,7 +177,7 @@ const UserProfile = () => {
 
       <button 
         onClick={handleLogout}
-        className="w-full flex items-center justify-center p-4 bg-red-900/10 border border-red-900/30 text-red-500 rounded-xl font-bold hover:bg-red-900/20 transition-colors mt-8"
+        className="w-full flex items-center justify-center p-4 bg-red-900/10 border border-red-900/30 text-red-500 rounded-xl font-bold hover:bg-red-900/20 transition-colors mt-8 shadow-sm"
       >
         <FiLogOut className="mr-2" size={18} /> Secure Logout
       </button>
@@ -203,7 +203,7 @@ const UserProfile = () => {
       ) : (
         <div className="space-y-4">
           {orders.map(order => (
-            <div key={order._id} className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 flex flex-col gap-4">
+            <div key={order._id} className="bg-[#18181b] border border-zinc-800 rounded-xl p-5 flex flex-col gap-4 shadow-lg">
               <div className="flex justify-between items-start border-b border-zinc-800/80 pb-3">
                 <div>
                   <p className="text-white font-bold text-sm">#{order._id.substring(18).toUpperCase()}</p>
@@ -258,21 +258,21 @@ const UserProfile = () => {
         <h2 className="text-xl font-bold text-white">Edit Profile</h2>
         <button onClick={() => setActiveView('menu')} className="text-sm text-zinc-400 hover:text-white md:hidden">Back</button>
       </div>
-      <form className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 space-y-4">
+      <form className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 space-y-4 shadow-lg">
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Full Name</label>
-          <input type="text" defaultValue={user.name} className="w-full bg-zinc-900 border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500" />
+          <input type="text" defaultValue={user.name} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm" />
         </div>
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Email Address</label>
-          <input type="email" defaultValue={user.email} className="w-full bg-zinc-900 border border-zinc-700 rounded px-4 py-3 text-zinc-400 cursor-not-allowed" disabled />
+          <input type="email" defaultValue={user.email} className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-zinc-400 cursor-not-allowed text-sm" disabled />
           <p className="text-[10px] text-zinc-500 mt-1">Email cannot be changed.</p>
         </div>
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Phone Number</label>
-          <input type="tel" placeholder="+91" className="w-full bg-zinc-900 border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500" />
+          <input type="tel" placeholder="+91" className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm" />
         </div>
-        <button type="button" className="w-full bg-white text-black font-bold py-3 rounded-lg mt-4 hover:bg-zinc-200 transition-colors">
+        <button type="button" className="w-full bg-white text-black font-bold py-3.5 rounded-xl mt-4 hover:bg-zinc-200 transition-colors shadow-md text-sm">
           Save Changes
         </button>
       </form>
@@ -292,12 +292,12 @@ const UserProfile = () => {
       />
 
       {/* Header Profile Section */}
-      <div className="flex items-center space-x-5 mb-8 md:mb-12">
+      <div className="flex items-center space-x-5 mb-8 md:mb-10">
         
         {/* Tapable Avatar Container */}
         <div 
           onClick={() => fileInputRef.current?.click()}
-          className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform"
+          className="w-20 h-20 md:w-24 md:h-24 bg-zinc-800 border-2 border-zinc-700 rounded-full flex items-center justify-center shadow-lg relative cursor-pointer active:scale-95 transition-transform flex-shrink-0"
           title="Tap to change profile picture"
         >
           {uploading ? (
@@ -346,7 +346,7 @@ const UserProfile = () => {
                 <h2 className="text-xl font-bold text-white">App Settings</h2>
                 <button onClick={() => setActiveView('menu')} className="text-sm text-zinc-400 hover:text-white md:hidden">Back</button>
               </div>
-               <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 text-zinc-400 text-sm">
+               <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 text-zinc-400 text-sm shadow-lg">
                  Settings toggles (Notifications, Dark Mode) will go here.
                </div>
              </div>
