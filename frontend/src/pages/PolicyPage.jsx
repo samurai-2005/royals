@@ -144,7 +144,7 @@ const PolicyPage = () => {
         ))}
 
         <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-xl text-xs text-zinc-400 text-center mt-6">
-          For any questions regarding these policies, reach out to <a href="mailto:support@royaltailors.net" className="text-white font-bold underline">orders@royaltailors.net</a> or visit our <Link to="/contact" className="text-white font-bold underline">Contact Page</Link>.
+          For any questions regarding these policies, reach out to <a href="mailto:support@royaltailors.net" className="text-white font-bold underline">support@royaltailors.net</a> or visit our <Link to="/contact" className="text-white font-bold underline">Contact Page</Link>.
         </div>
       </div>
     </div>
