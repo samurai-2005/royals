@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { FiLock, FiMapPin } from 'react-icons/fi';
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -23,6 +24,13 @@ const Checkout = () => {
 
   const handleChange = (e) => {
     setShippingAddress({ ...shippingAddress, [e.target.name]: e.target.value });
+  };
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
   const handlePlaceOrder = async (e) => {
@@ -62,7 +70,6 @@ const Checkout = () => {
         totalPrice: grandTotal
       };
 
-      // FIXED: Added backticks and ${} for the Render backend URL
       const { data } = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/orders`, 
         orderPayload, 
@@ -211,18 +218,42 @@ const Checkout = () => {
         <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-xl shadow-lg h-fit space-y-6">
           <h2 className="text-xl font-bold border-b border-zinc-800 pb-4">Order Summary</h2>
 
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {cartItems.map((item) => (
-              <div key={`${item._id}-${item.size}`} className="flex justify-between items-center text-sm">
-                <div>
-                  <p className="font-bold text-white">{item.name}</p>
-                  <p className="text-xs text-zinc-500">Size: {item.size} x {item.qty}</p>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+            {cartItems.map((item) => {
+              const rawImg = item.images && item.images.length > 0 ? item.images[0] : item.image;
+              const displayImg = getImageUrl(rawImg);
+
+              return (
+                <div key={`${item._id}-${item.size}`} className="flex items-center justify-between text-sm gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Clickable Image Thumbnail in Checkout */}
+                    <Link 
+                      to={`/product/${item._id}`}
+                      className="w-12 h-12 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
+                      title="View Product"
+                    >
+                      {displayImg ? (
+                        <img src={displayImg} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[8px] text-zinc-600 font-bold uppercase">N/A</span>
+                      )}
+                    </Link>
+
+                    {/* Clickable Item Name */}
+                    <div className="min-w-0">
+                      <Link to={`/product/${item._id}`} className="hover:underline block truncate">
+                        <p className="font-bold text-white truncate">{item.name}</p>
+                      </Link>
+                      <p className="text-xs text-zinc-500">Size: {item.size} x {item.qty}</p>
+                    </div>
+                  </div>
+
+                  <span className="font-bold text-white flex-shrink-0">
+                    Rs {(item.discountPercentage > 0 ? item.discountPrice : item.price) * item.qty}
+                  </span>
                 </div>
-                <span className="font-bold text-white">
-                  Rs {(item.discountPercentage > 0 ? item.discountPrice : item.price) * item.qty}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <hr className="border-zinc-800" />

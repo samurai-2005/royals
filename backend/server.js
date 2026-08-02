@@ -1,7 +1,14 @@
-const express = require('express');
+// 1. MUST be required before any other module
+require('./instrument.js');
+
+// 2. Load environment variables IMMEDIATELY so process.env is ready for all imported modules
 const dotenv = require('dotenv');
+dotenv.config();
+
+const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const Sentry = require('@sentry/node');
 
 const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
@@ -11,16 +18,12 @@ const userRoutes = require('./src/routes/userRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const shiprocketRoutes = require('./src/routes/shiprocketRoutes');
 
-// Load environment variables
-dotenv.config();
-
 // Connect to Database
 connectDB();
 
 const app = express();
 
 // Middlewares
-// FIXED: set 'origin: true' so all Vercel preview URLs and localhost are permitted
 app.use(cors({
   origin: true,
   credentials: true
@@ -50,6 +53,18 @@ app.get('/healthz', (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('The Royal Tailor API is running...');
+});
+
+
+// 3. Sentry Error Handler MUST be registered AFTER all routes and controllers
+Sentry.setupExpressErrorHandler(app);
+
+// 4. Fallthrough Error Handling Middleware
+app.use((err, req, res, next) => {
+  res.status(500).json({
+    message: err.message,
+    error: process.env.NODE_ENV === 'production' ? {} : err
+  });
 });
 
 const PORT = process.env.PORT || 5000;

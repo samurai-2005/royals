@@ -1,9 +1,10 @@
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const sendEmail = async ({ to, subject, html }) => {
   try {
+    // Instantiate Resend inside the function so process.env is guaranteed to be loaded
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const data = await resend.emails.send({
       from: 'Royal Tailor <orders@royaltailors.net>',
       to: [to],

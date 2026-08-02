@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { FiTrash2, FiMinus, FiPlus, FiShoppingBag, FiArrowRight } from 'react-icons/fi';
 
@@ -51,8 +51,12 @@ const Cart = () => {
                 key={`${item._id}-${item.size}`} 
                 className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 md:p-5 flex gap-4 md:gap-6 items-center shadow-lg relative"
               >
-                {/* Product Image */}
-                <div className="w-20 h-20 md:w-28 md:h-28 bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 flex-shrink-0 flex items-center justify-center">
+                {/* Clickable Product Image */}
+                <Link 
+                  to={`/product/${item._id}`}
+                  className="w-20 h-20 md:w-28 md:h-28 bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                  title="View product details"
+                >
                   {displayImg ? (
                     <img 
                       src={displayImg} 
@@ -65,12 +69,15 @@ const Cart = () => {
                       No Image
                     </span>
                   )}
-                </div>
+                </Link>
 
                 {/* Details & Controls */}
                 <div className="flex-1 min-w-0 pr-8 md:pr-0">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4 mb-2">
-                    <h3 className="font-bold text-white text-sm md:text-lg truncate">{item.name}</h3>
+                    {/* Clickable Product Title */}
+                    <Link to={`/product/${item._id}`} className="truncate hover:underline">
+                      <h3 className="font-bold text-white text-sm md:text-lg truncate">{item.name}</h3>
+                    </Link>
                     <p className="text-base md:text-lg font-black text-white">
                       Rs {itemPrice * item.qty}
                     </p>
