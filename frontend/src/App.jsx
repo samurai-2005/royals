@@ -16,6 +16,10 @@ import Deals from './pages/Deals';
 import BulkOrder from './pages/BulkOrder';
 import Catalog from './pages/Catalog';
 
+// Compliance & Customer Support Pages
+import Contact from './pages/Contact';
+import PolicyPage from './pages/PolicyPage';
+
 // Global PWA Install Banner Component
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 
@@ -68,6 +72,13 @@ function App() {
               {/* Workspace Routes */}
               <Route path="checkout" element={<Checkout />} />
               <Route path="user-profile" element={<UserProfile />} />
+
+              {/* Mandatory Compliance Routes for PhonePe PG Activation */}
+              <Route path="contact" element={<Contact />} />
+              <Route path="refund-policy" element={<PolicyPage />} />
+              <Route path="shipping-policy" element={<PolicyPage />} />
+              <Route path="privacy-policy" element={<PolicyPage />} />
+              <Route path="terms-and-conditions" element={<PolicyPage />} />
               
               {/* Protected Admin Route */}
               <Route element={<AdminRoute />}>

@@ -3,6 +3,7 @@ import Navbar from './Navbar';
 import LeftSidebar from './LeftSidebar';
 import RightSidebar from './RightSidebar';
 import MobileBottomNav from './MobileBottomNav';
+import Footer from '../Footer';
 
 const MainLayout = () => {
   const location = useLocation();
@@ -26,8 +27,15 @@ const MainLayout = () => {
           <LeftSidebar />
         </div>
 
-        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-0 md:p-6 relative scrollbar-hide">
-          <Outlet /> 
+        {/* Scrollable Main Area */}
+        <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-0 md:p-6 relative scrollbar-hide flex flex-col min-h-full">
+          {/* Page Content */}
+          <div className="flex-1">
+            <Outlet /> 
+          </div>
+
+          {/* Footer sits at the end of page content */}
+          <Footer />
         </main>
 
         {/* Conditionally render Right Sidebar */}
@@ -39,7 +47,7 @@ const MainLayout = () => {
         
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Fixed Mobile Bottom Navigation */}
       <MobileBottomNav />
 
     </div>
