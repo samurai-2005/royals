@@ -3,6 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
   FiShield, 
+  FiDollarSign,
+  FiTruck,
+  FiPackage,
+  FiLayers,
+  FiFileText,
+  FiUsers,
   FiPlus, 
   FiEdit3, 
   FiTrash2, 
@@ -17,7 +23,7 @@ import {
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'finance';
 
   // Auth & Core States
@@ -43,6 +49,11 @@ const AdminDashboard = () => {
   // Inventory Inline Edit State
   const [editingStockId, setEditingStockId] = useState(null);
   const [newStockVal, setNewStockVal] = useState('');
+
+  // Tab switching helper
+  const handleTabChange = (tabId) => {
+    setSearchParams({ tab: tabId });
+  };
 
   // Get Auth Header Helper
   const getAuthHeader = useCallback(() => {
@@ -165,7 +176,7 @@ const AdminDashboard = () => {
         mainGroup: prodMainGroup,
         subGroup: prodSubGroup,
         images: prodImage ? [prodImage] : [],
-        countInStock: editingProduct ? editingProduct.countInStock : 10 // Defaults to 10 on creation
+        countInStock: editingProduct ? editingProduct.countInStock : 10 // Defaults to 10 on creation as requested
       };
 
       if (editingProduct) {
@@ -248,34 +259,63 @@ const AdminDashboard = () => {
     );
   }
 
+  const tabs = [
+    { id: 'finance', label: 'Finance', icon: FiDollarSign },
+    { id: 'shipment', label: 'Shipment', icon: FiTruck },
+    { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
+    { id: 'inventory', label: 'Inventory', icon: FiLayers },
+    { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
+    { id: 'users', label: 'Users', icon: FiUsers },
+  ];
+
   return (
     <div className="space-y-6">
       
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl md:text-2xl font-black uppercase tracking-wider text-white">
-              {activeTab === 'finance' && '💰 Financial Management'}
-              {activeTab === 'shipment' && '🚚 Shiprocket Logistics'}
-              {activeTab === 'products' && '📦 Catalog Product Management'}
-              {activeTab === 'inventory' && '📊 Inventory & Stock Calculation'}
-              {activeTab === 'orders' && '📑 Customer Order Fulfillment'}
-              {activeTab === 'users' && '👥 Registered Customer Directory'}
-            </h1>
-            <span className="bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <FiShield size={10} /> AUTHENTICATED
-            </span>
+      {/* HEADER BAR & TAB NAVIGATION */}
+      <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-black uppercase tracking-wider text-white">
+                Admin Command Center
+              </h1>
+              <span className="bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <FiShield size={10} /> AUTHENTICATED
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">Logged in as Administrator: <strong>{adminUser?.name}</strong></p>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">Logged in as Administrator: <strong>{adminUser?.name}</strong></p>
+
+          <button
+            onClick={fetchDashboardData}
+            className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-amber-400 text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer w-fit"
+          >
+            <FiRefreshCw className={loadingData ? 'animate-spin' : ''} size={14} /> Refresh Live Data
+          </button>
         </div>
 
-        <button
-          onClick={fetchDashboardData}
-          className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-amber-400 text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer w-fit"
-        >
-          <FiRefreshCw className={loadingData ? 'animate-spin' : ''} size={14} /> Refresh Live Data
-        </button>
+        {/* 6 ADMIN CONTROL SECTION TABS */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-zinc-800/80">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg font-black scale-[1.02]'
+                    : 'bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800'
+                }`}
+              >
+                <Icon size={15} />
+                <span className="truncate">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {dataError && (
