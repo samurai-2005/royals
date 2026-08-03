@@ -187,15 +187,15 @@ const UserProfile = () => {
 
           </div>
 
-          {/* OPEN ADMIN DASHBOARD ORANGE CTA BUTTON */}
+          {/* SECURE ADMIN DASHBOARD CTA BUTTON */}
           {userInfo?.isAdmin && (
             <button
               type="button"
-              onClick={() => navigate('/profile')}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 px-6 rounded-xl flex items-center justify-between shadow-xl transition-all cursor-pointer group"
+              onClick={() => navigate('/admin/dashboard')}
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-4 px-6 rounded-xl flex items-center justify-between shadow-xl transition-all cursor-pointer group"
             >
               <span className="flex items-center text-sm tracking-wide">
-                <FiShield className="mr-3" size={18} /> Open Admin Dashboard
+                <FiShield className="mr-3 text-black" size={18} /> Open Secure Admin Dashboard
               </span>
               <FiChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
