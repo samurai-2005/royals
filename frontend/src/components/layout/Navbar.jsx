@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { FiSearch, FiShoppingBag, FiUser, FiMenu, FiX, FiBell } from 'react-icons/fi';
+import axios from 'axios';
 import { useCart } from '../../context/CartContext';
 
 const Navbar = ({ toggleSidebar }) => {
@@ -32,6 +33,54 @@ const Navbar = ({ toggleSidebar }) => {
     e.preventDefault();
     if (keyword.trim()) {
       navigate(`/search/${keyword.trim()}`);
+    }
+  };
+
+  // Notification Bell Click Handler
+  const handleNotificationBellClick = async () => {
+    if (!('Notification' in window)) {
+      alert('Push notifications are not supported on this browser.');
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      alert('🔔 Royal Notifications are ACTIVE! You will receive order updates & sales alerts.');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      alert('⚠️ Notifications are blocked in your browser settings. Please enable notifications for royaltailors.net to receive order updates.');
+      return;
+    }
+
+    // Request permission if default
+    try {
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        const registration = await navigator.serviceWorker.ready;
+        const publicVapidKey = import.meta.env.VITE_PUBLIC_VAPID_KEY;
+
+        if (publicVapidKey) {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: publicVapidKey
+          });
+
+          const userInfo = getUser();
+          const config = userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : {};
+
+          await axios.post(
+            `${import.meta.env.VITE_BACKEND_URL}/api/users/subscribe-push`,
+            { subscription },
+            config
+          );
+        }
+
+        alert('✅ Royal Notifications successfully enabled!');
+      }
+    } catch (err) {
+      console.error('Failed to enable notifications:', err);
     }
   };
 
@@ -70,8 +119,15 @@ const Navbar = ({ toggleSidebar }) => {
 
           {/* Actions: Notification Bell + Cart + User Profile Avatar */}
           <div className="flex items-center gap-4">
-            <button className="text-zinc-300 hover:text-white p-1" aria-label="Notifications">
+            <button 
+              type="button"
+              onClick={handleNotificationBellClick}
+              className="relative text-zinc-300 hover:text-white transition-colors p-1 cursor-pointer" 
+              aria-label="Notifications"
+              title="Notifications"
+            >
               <FiBell size={20} />
+              <span className="absolute top-0 right-0 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
             </button>
 
             <Link to="/cart" className="relative text-zinc-300 hover:text-white transition-colors p-1">

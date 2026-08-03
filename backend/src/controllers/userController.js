@@ -372,6 +372,27 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
+// @desc    Save PWA Web Push Subscription for user
+// @route   POST /api/users/subscribe-push
+// @access  Public / Optional Auth
+const savePushSubscription = async (req, res) => {
+  try {
+    const { subscription } = req.body;
+
+    if (!subscription) {
+      return res.status(400).json({ message: 'Push subscription payload is required.' });
+    }
+
+    if (req.user) {
+      await User.findByIdAndUpdate(req.user._id, { pushSubscription: subscription });
+    }
+
+    res.status(200).json({ message: 'Push notification subscription saved successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   authUser,
   registerUser,
@@ -380,4 +401,5 @@ module.exports = {
   verifyOtp,
   getUserProfile,
   updateUserProfile,
+  savePushSubscription,
 };

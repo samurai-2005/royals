@@ -24,6 +24,7 @@ import PolicyPage from './pages/PolicyPage';
 import ScrollToTop from './components/common/ScrollToTop';
 import GuestAuthModal from './components/common/GuestAuthModal';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import NotificationPrompt from './components/common/NotificationPrompt';
 
 // Fallback UI shown if a React component crashes unexpectedly
 function ErrorFallback({ resetError }) {
@@ -104,6 +105,9 @@ function App() {
 
           {/* Prompts guests navigating the site to sign in or register */}
           <GuestAuthModal />
+
+          {/* PWA Post-Install Notification Permission Banner */}
+          <NotificationPrompt />
         </Router>
 
         {/* Renders the "Add to Home Screen" pop-up banner */}

@@ -9,10 +9,11 @@ const {
   verifyOtp,
   getUserProfile,
   updateUserProfile,
+  savePushSubscription,
 } = require('../controllers/userController');
 
 // Registration & Login Routes
-router.post('/register', registerUser); // 👈 Matches POST /api/users/register from frontend
+router.post('/register', registerUser); // Matches POST /api/users/register from frontend
 router.post('/', registerUser);         // Backup for POST /api/users
 router.post('/login', authUser);
 
@@ -20,6 +21,9 @@ router.post('/login', authUser);
 router.post('/check-otp-channels', checkOtpChannels);
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
+
+// PWA Push Subscription Route
+router.post('/subscribe-push', savePushSubscription);
 
 // Protected Profile Route
 router
