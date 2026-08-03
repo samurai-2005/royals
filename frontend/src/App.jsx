@@ -15,6 +15,7 @@ import Checkout from './pages/Checkout';
 import Deals from './pages/Deals';
 import BulkOrder from './pages/BulkOrder';
 import Catalog from './pages/Catalog';
+import Orders from './pages/Orders';
 
 // Compliance & Customer Support Pages
 import Contact from './pages/Contact';
@@ -78,6 +79,7 @@ function App() {
                   <Route path="cart" element={<Cart />} />
                   <Route path="deals" element={<Deals />} />
                   <Route path="catalog" element={<Catalog />} />
+                  <Route path="orders" element={<Orders />} />
                   
                   {/* Workspace Routes */}
                   <Route path="checkout" element={<Checkout />} />
