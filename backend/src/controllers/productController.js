@@ -1,18 +1,35 @@
 const Product = require('../models/Product');
 
-// @desc    Get all products or filter by mainGroup/subGroup
+// Helper: Converts slugs like "school-uniforms" or "security_guard" to flexible regex matching "School Uniforms"
+const createFlexibleRegex = (paramStr) => {
+  if (!paramStr) return null;
+  const sanitized = paramStr.trim().replace(/[-_]/g, '[\\s\\-_]+');
+  return new RegExp(`^${sanitized}$`, 'i');
+};
+
+// @desc    Get all products or filter by mainGroup/subGroup/category
 // @route   GET /api/products
 const getProducts = async (req, res) => {
   try {
-    const { mainGroup, subGroup } = req.query;
+    const { mainGroup, subGroup, category, type } = req.query;
     let query = {};
-    
-    if (mainGroup) {
-      query.mainGroup = { $regex: new RegExp(`^${mainGroup}$`, 'i') }; 
-    }
-    
-    if (subGroup) {
-      query.subGroup = { $regex: new RegExp(`^${subGroup}$`, 'i') };
+
+    // 1. If frontend passes a generic 'category' or 'type' query (e.g. ?category=school-uniforms)
+    if (category || type) {
+      const catRegex = createFlexibleRegex(category || type);
+      query.$or = [
+        { mainGroup: catRegex },
+        { subGroup: catRegex }
+      ];
+    } else {
+      // 2. Specific mainGroup and/or subGroup queries
+      if (mainGroup) {
+        query.mainGroup = createFlexibleRegex(mainGroup);
+      }
+      
+      if (subGroup) {
+        query.subGroup = createFlexibleRegex(subGroup);
+      }
     }
 
     const products = await Product.find(query);

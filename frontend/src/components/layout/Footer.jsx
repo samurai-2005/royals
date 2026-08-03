@@ -3,7 +3,7 @@ import { FiShield, FiTruck, FiRefreshCw, FiLock } from 'react-icons/fi';
 
 const Footer = () => {
   return (
-    <footer className="bg-[#0f0f0f] border-t border-zinc-800 text-zinc-400 pt-12 pb-28 md:pb-8 px-4 md:px-8 mt-auto">
+    <footer className="bg-[#0f0f0f] border-t border-zinc-800 text-zinc-400 py-12 px-4 md:px-8 mt-auto">
       <div className="max-w-6xl mx-auto space-y-10">
         
         {/* Trust Badges */}

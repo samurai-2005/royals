@@ -59,41 +59,48 @@ function App() {
           {/* Resets scroll position to top (0,0) on every route navigation */}
           <ScrollToTop />
 
-          <Routes>
-            {/* Main Layout containing Navbar, Sidebars, and Bottom Navigation */}
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<Home />} />
-              <Route path="search/:keyword" element={<Search />} />
-              <Route path="category/:type" element={<Category />} />
-              <Route path="product/:id" element={<ProductDetail />} />
-              
-              <Route path="bulk-order" element={<BulkOrder />} />
-              
-              {/* App Navigation Routes */}
-              <Route path="cart" element={<Cart />} />
-              <Route path="deals" element={<Deals />} />
-              <Route path="catalog" element={<Catalog />} />
-              
-              {/* Workspace Routes */}
-              <Route path="checkout" element={<Checkout />} />
-              <Route path="user-profile" element={<UserProfile />} />
-
-              {/* Compliance & Contact Routes */}
-              <Route path="contact" element={<Contact />} />
-              <Route path="refund-policy" element={<PolicyPage />} />
-              <Route path="shipping-policy" element={<PolicyPage />} />
-              <Route path="privacy-policy" element={<PolicyPage />} />
-              <Route path="terms-and-conditions" element={<PolicyPage />} />
-              
-              {/* Protected Admin Route */}
-              <Route element={<AdminRoute />}>
-                <Route path="profile" element={<Profile />} />
-              </Route>
-            </Route>
+          {/* Root layout container using sticky footer flex structure */}
+          <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col justify-between selection:bg-amber-500 selection:text-black">
             
-            {/* Full-screen Login */}
-            <Route path="/login" element={<Login />} />
-          </Routes>
+            <div className="flex-grow">
+              <Routes>
+                {/* Main Layout containing Navbar, Sidebars, and Bottom Navigation */}
+                <Route path="/" element={<MainLayout />}>
+                  <Route index element={<Home />} />
+                  <Route path="search/:keyword" element={<Search />} />
+                  <Route path="category/:type" element={<Category />} />
+                  <Route path="product/:id" element={<ProductDetail />} />
+                  
+                  <Route path="bulk-order" element={<BulkOrder />} />
+                  
+                  {/* App Navigation Routes */}
+                  <Route path="cart" element={<Cart />} />
+                  <Route path="deals" element={<Deals />} />
+                  <Route path="catalog" element={<Catalog />} />
+                  
+                  {/* Workspace Routes */}
+                  <Route path="checkout" element={<Checkout />} />
+                  <Route path="user-profile" element={<UserProfile />} />
+
+                  {/* Compliance & Contact Routes */}
+                  <Route path="contact" element={<Contact />} />
+                  <Route path="refund-policy" element={<PolicyPage />} />
+                  <Route path="shipping-policy" element={<PolicyPage />} />
+                  <Route path="privacy-policy" element={<PolicyPage />} />
+                  <Route path="terms-and-conditions" element={<PolicyPage />} />
+                  
+                  {/* Protected Admin Route */}
+                  <Route element={<AdminRoute />}>
+                    <Route path="profile" element={<Profile />} />
+                  </Route>
+                </Route>
+                
+                {/* Full-screen Login */}
+                <Route path="/login" element={<Login />} />
+              </Routes>
+            </div>
+
+          </div>
 
           {/* Prompts guests navigating the site to sign in or register */}
           <GuestAuthModal />
