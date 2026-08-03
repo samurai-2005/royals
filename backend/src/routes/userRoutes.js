@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, admin } = require('../middlewares/authMiddleware');
 const {
   authUser,
   registerUser,
@@ -10,11 +10,14 @@ const {
   getUserProfile,
   updateUserProfile,
   savePushSubscription,
+  getUsers,
 } = require('../controllers/userController');
 
-// Registration & Login Routes
+// Registration, Login & Admin Directory Routes
 router.post('/register', registerUser); // Matches POST /api/users/register from frontend
-router.post('/', registerUser);         // Backup for POST /api/users
+router.route('/')
+  .post(registerUser)         // Backup for POST /api/users
+  .get(protect, admin, getUsers); // Admin access to fetch all users
 router.post('/login', authUser);
 
 // OTP Verification Routes
