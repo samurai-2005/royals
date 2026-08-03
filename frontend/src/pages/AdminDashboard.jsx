@@ -5,33 +5,43 @@ import {
   FiShield, 
   FiDollarSign, 
   FiTag, 
-  FiLock, 
   FiSend, 
   FiCheckCircle, 
   FiTruck, 
   FiArrowLeft,
   FiPlusCircle,
   FiTrendingUp,
-  FiRefreshCw
+  FiRefreshCw,
+  FiAlertCircle,
+  FiEdit3,
+  FiCheck,
+  FiX
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
-  // Security Pipeline States
-  const [securityVerified, setSecurityVerified] = useState(false);
-  const [adminPin, setAdminPin] = useState('');
-  const [pinError, setPinError] = useState('');
+  // Security & Authentication States
   const [authenticating, setAuthenticating] = useState(true);
+  const [adminUser, setAdminUser] = useState(null);
 
-  // Tab State: 'analytics' | 'sales-organizer'
+  // Tab State: 'analytics' | 'inventory' | 'orders' | 'sales-organizer'
   const [activeTab, setActiveTab] = useState('analytics');
 
-  // Analytics State
+  // Data States
   const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState('');
 
-  // Flash Sale Organizer Form State
+  // Inline Stock Edit State
+  const [editingStockId, setEditingStockId] = useState(null);
+  const [newStockCount, setNewStockCount] = useState('');
+
+  // Order Status Update State
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+  // Flash Sale Form State
   const [eventTitle, setEventTitle] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [discountPercent, setDiscountPercent] = useState('20');
@@ -51,88 +61,110 @@ const AdminDashboard = () => {
   ]);
   const [saleMessage, setSaleMessage] = useState('');
 
-  // 1. FETCH ORDERS LOGIC (Declared before useEffect to fix hoisting)
-  const fetchOrdersData = useCallback(async (token) => {
-    setLoadingOrders(true);
-    try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders`, config);
-      setOrders(data);
-    } catch (err) {
-      console.warn('Orders fetch note:', err.message);
-    } finally {
-      setLoadingOrders(false);
-    }
+  // Helper: Get JWT token from local storage
+  const getAuthHeader = useCallback(() => {
+    const userInfoString = localStorage.getItem('userInfo');
+    const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
+    return userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : null;
   }, []);
 
-  // 2. SECURITY PIPELINE HANDSHAKE
-  useEffect(() => {
-    const verifyAdminServerPipeline = async () => {
-      const userInfoString = localStorage.getItem('userInfo');
-      const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
+  // Fetch Dashboard Core Data (Orders & Products)
+  const fetchDashboardData = useCallback(async () => {
+    const config = getAuthHeader();
+    if (!config) return;
 
-      if (!userInfo || !userInfo.token || !userInfo.isAdmin) {
+    setLoadingData(true);
+    setDataError('');
+
+    try {
+      const [ordersRes, productsRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders`, config),
+        axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`)
+      ]);
+
+      setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
+      setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+    } catch (err) {
+      console.error('Admin data fetch error:', err);
+      setDataError(err.response?.data?.message || 'Failed to load live administrative data.');
+    } finally {
+      setLoadingData(false);
+    }
+  }, [getAuthHeader]);
+
+  // 1. STRICT SERVER-SIDE AUTHENTICATION HANDSHAKE
+  useEffect(() => {
+    const verifyServerAdminSession = async () => {
+      const config = getAuthHeader();
+      if (!config) {
         navigate('/login');
         return;
       }
 
       try {
-        // Handshake: Verify token active & admin status directly with MongoDB
-        const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, config);
 
         if (!data.isAdmin) {
-          alert('🚫 Access Denied: Unauthorized administrative attempt.');
-          navigate('/login');
+          alert('🚫 Access Denied: Administrator permissions required.');
+          navigate('/user-profile');
           return;
         }
 
-        // Check if admin PIN session was already passed
-        const pinPassed = sessionStorage.getItem('adminSessionVerified');
-        if (pinPassed === 'true') {
-          setSecurityVerified(true);
-          fetchOrdersData(userInfo.token);
-        }
+        setAdminUser(data);
+        fetchDashboardData();
       } catch (err) {
-        console.error('Security pipeline verification failed:', err);
+        console.error('Admin authorization handshake failed:', err);
         navigate('/login');
       } finally {
         setAuthenticating(false);
       }
     };
 
-    verifyAdminServerPipeline();
-  }, [navigate, fetchOrdersData]);
+    verifyServerAdminSession();
+  }, [navigate, getAuthHeader, fetchDashboardData]);
 
-  // 3. ADMIN PIN AUTHORIZATION HANDLER
-  const handlePinSubmit = (e) => {
-    e.preventDefault();
-    if (adminPin === '1234' || adminPin === '8492') {
-      sessionStorage.setItem('adminSessionVerified', 'true');
-      setSecurityVerified(true);
-      setPinError('');
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-      if (userInfo?.token) fetchOrdersData(userInfo.token);
-    } else {
-      setPinError('Invalid Security Passcode. Access Locked.');
+  // 2. INVENTORY STOCK UPDATE HANDLER
+  const handleSaveStock = async (productId) => {
+    const config = getAuthHeader();
+    if (!config) return;
+
+    try {
+      const { data } = await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/products/${productId}`,
+        { countInStock: Number(newStockCount) },
+        config
+      );
+
+      setProducts(prev => prev.map(p => p._id === productId ? data : p));
+      setEditingStockId(null);
+      alert(`✅ Inventory updated for "${data.name}". Stock count set to ${data.countInStock}.`);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update stock inventory.');
     }
   };
 
-  // 4. FINANCIAL REVENUE CALCULATIONS
-  const totalRevenue = orders.reduce((acc, order) => acc + (order.totalPrice || order.itemsPrice || 0), 0);
-  
-  // Online Payment vs COD
-  const onlineOrders = orders.filter(o => o.paymentMethod?.toLowerCase() !== 'cod');
-  const codOrders = orders.filter(o => o.paymentMethod?.toLowerCase() === 'cod');
+  // 3. ORDER FULFILLMENT STATUS UPDATE HANDLER
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    const config = getAuthHeader();
+    if (!config) return;
 
-  const onlineRevenue = onlineOrders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
-  const codRevenue = codOrders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
+    setUpdatingOrderId(orderId);
+    try {
+      const { data } = await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/orders/${orderId}/status`,
+        { status: newStatus },
+        config
+      );
 
-  // Received vs Yet to Receive
-  const receivedRevenue = orders.filter(o => o.isPaid).reduce((acc, order) => acc + (order.totalPrice || 0), 0);
-  const pendingRevenue = totalRevenue - receivedRevenue;
+      setOrders(prev => prev.map(o => o._id === orderId ? data : o));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update order status.');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
-  // 5. SALE EVENT CREATOR HANDLER
+  // 4. FLASH SALE EVENT CREATOR HANDLER
   const handleCreateSaleEvent = async (e) => {
     e.preventDefault();
     if (!eventTitle) return;
@@ -149,77 +181,40 @@ const AdminDashboard = () => {
     };
 
     setSaleEvents([newEvent, ...saleEvents]);
-    setSaleMessage(`✅ Flash Sale Event "${eventTitle}" successfully published!`);
+    setSaleMessage(`✅ Flash Sale Event "${eventTitle}" published!`);
     if (broadcastPush) {
-      setSaleMessage(`✅ Flash Sale Published & Web Push broadcast dispatched to all devices!`);
+      setSaleMessage(`✅ Flash Sale Published & Push Broadcast dispatched to all devices!`);
     }
 
     setEventTitle('');
     setEventDescription('');
   };
 
-  // IF SECURITY PIPELINE IS AUTHENTICATING
+  // FINANCIAL REVENUE CALCULATIONS
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const totalRevenue = safeOrders.reduce((acc, order) => acc + (order.totalPrice || order.itemsPrice || 0), 0);
+  const onlineOrders = safeOrders.filter(o => o.paymentMethod?.toLowerCase() !== 'cod');
+  const codOrders = safeOrders.filter(o => o.paymentMethod?.toLowerCase() === 'cod');
+  const onlineRevenue = onlineOrders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
+  const codRevenue = codOrders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
+  const receivedRevenue = safeOrders.filter(o => o.isPaid).reduce((acc, order) => acc + (order.totalPrice || 0), 0);
+  const pendingRevenue = Math.max(0, totalRevenue - receivedRevenue);
+
+  // AUTHENTICATING SCREEN
   if (authenticating) {
     return (
-      <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Verifying Security Pipeline...</p>
+      <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center p-6 text-center space-y-3">
+        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Verifying Administrator Session...</p>
       </div>
     );
   }
 
-  // LAYER 3: SECURITY PIN PASSCODE GATE MODAL
-  if (!securityVerified) {
-    return (
-      <div className="min-h-screen bg-[#0f0f0f] text-white flex items-center justify-center p-4">
-        <div className="bg-[#18181b] border border-zinc-800 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 text-center">
-          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-2xl flex items-center justify-center mx-auto">
-            <FiLock size={28} />
-          </div>
-
-          <div>
-            <h2 className="text-xl font-black text-white tracking-wide">Admin Security Pipeline</h2>
-            <p className="text-xs text-zinc-400 mt-1">Enter your 4-digit Administrator Security PIN to access financials.</p>
-          </div>
-
-          {pinError && (
-            <div className="p-3 bg-red-950/80 border border-red-800 text-red-400 text-xs font-bold rounded-xl animate-shake">
-              {pinError}
-            </div>
-          )}
-
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <input
-              type="password"
-              maxLength="4"
-              placeholder="••••"
-              value={adminPin}
-              onChange={(e) => setAdminPin(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 text-center text-3xl font-mono tracking-[0.5em] py-3.5 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors"
-            />
-
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black py-4 rounded-xl text-sm hover:from-amber-400 hover:to-amber-500 transition-all cursor-pointer shadow-lg"
-            >
-              Unlock Dashboard
-            </button>
-          </form>
-
-          <p className="text-[10px] text-zinc-600 uppercase font-bold tracking-widest">
-            Protected by 256-Bit Royal Security Pipeline
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // UNLOCKED ADMIN DASHBOARD
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
+      {/* HEADER BAR */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/user-profile')}
@@ -230,63 +225,84 @@ const AdminDashboard = () => {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black uppercase tracking-wider text-white">Admin Command Center</h1>
+              <h1 className="text-xl md:text-2xl font-black uppercase tracking-wider text-white">
+                Royal Admin Command Center
+              </h1>
               <span className="bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <FiShield size={10} /> SECURE
+                <FiShield size={10} /> AUTHENTICATED
               </span>
             </div>
-            <p className="text-xs text-zinc-400">Manage sales events, financials, PhonePe payments, and Shiprocket dispatches.</p>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Logged in as <strong className="text-zinc-200">{adminUser?.name}</strong> ({adminUser?.email})
+            </p>
           </div>
         </div>
 
-        {/* Tab Navigation Controls */}
-        <div className="flex items-center gap-2 bg-[#18181b] p-1.5 rounded-2xl border border-zinc-800">
+        {/* TAB NAVIGATION CONTROLS */}
+        <div className="flex flex-wrap items-center gap-2 bg-[#18181b] p-1.5 rounded-2xl border border-zinc-800">
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'analytics' ? 'bg-amber-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Revenue Analytics
+            Financials
+          </button>
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'inventory' ? 'bg-amber-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Inventory Control ({products.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'orders' ? 'bg-amber-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Fulfillment ({safeOrders.length})
           </button>
           <button
             onClick={() => setActiveTab('sales-organizer')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'sales-organizer' ? 'bg-amber-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Sale Event Organizer
+            Flash Sales
           </button>
         </div>
       </div>
+
+      {dataError && (
+        <div className="p-4 bg-red-950/40 border border-red-800/60 rounded-xl text-red-400 text-xs font-medium flex items-center gap-2">
+          <FiAlertCircle size={16} /> {dataError}
+        </div>
+      )}
 
       {/* TAB 1: FINANCIAL & REVENUE ANALYTICS */}
       {activeTab === 'analytics' && (
         <div className="space-y-8 animate-fade-in">
           
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400">Financial Summary</h2>
+            <h2 className="text-xs font-black uppercase tracking-wider text-zinc-500">Live Revenue Metrics</h2>
             <button
-              onClick={() => {
-                const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-                if (userInfo?.token) fetchOrdersData(userInfo.token);
-              }}
+              onClick={fetchDashboardData}
               className="flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
             >
-              <FiRefreshCw className={loadingOrders ? 'animate-spin' : ''} size={14} />
-              {loadingOrders ? 'Refreshing...' : 'Refresh Financials'}
+              <FiRefreshCw className={loadingData ? 'animate-spin' : ''} size={14} />
+              {loadingData ? 'Refreshing...' : 'Refresh Financials'}
             </button>
           </div>
 
-          {/* Main Revenue KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-[#18181b] border border-zinc-800 p-5 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
                 Total Gross Revenue <FiTrendingUp className="text-amber-400" size={16} />
               </span>
               <p className="text-2xl font-black text-white">Rs {totalRevenue.toFixed(2)}</p>
-              <p className="text-[11px] text-zinc-500">From all order channels</p>
+              <p className="text-[11px] text-zinc-500">All order transactions</p>
             </div>
 
             <div className="bg-[#18181b] border border-zinc-800 p-5 rounded-2xl space-y-2 shadow-xl">
@@ -307,18 +323,14 @@ const AdminDashboard = () => {
 
             <div className="bg-[#18181b] border border-zinc-800 p-5 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Payments Received <FiCheckCircle className="text-amber-400" size={16} />
+                Settled / Received <FiCheckCircle className="text-amber-400" size={16} />
               </span>
               <p className="text-2xl font-black text-amber-400">Rs {receivedRevenue.toFixed(2)}</p>
               <p className="text-[11px] text-zinc-500">Pending: <strong className="text-red-400">Rs {pendingRevenue.toFixed(2)}</strong></p>
             </div>
-
           </div>
 
-          {/* Payment Gateway & Dispatch API Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* PhonePe API Integration Panel */}
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-4 shadow-xl">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -328,15 +340,10 @@ const AdminDashboard = () => {
                 <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded font-mono font-bold">CONNECTED</span>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Online payment captures are automatically settled via PhonePe UPI & Credit/Debit Card webhooks.
+                Online payments are auto-verified via PhonePe UPI & Payment Gateway callbacks.
               </p>
-              <div className="pt-2 flex items-center justify-between text-xs">
-                <span className="text-zinc-500 font-semibold">Active Webhook URL:</span>
-                <span className="font-mono text-zinc-300 text-[11px]">/api/payments/phonepe/callback</span>
-              </div>
             </div>
 
-            {/* Shiprocket Logistics Panel */}
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-4 shadow-xl">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -346,24 +353,186 @@ const AdminDashboard = () => {
                 <span className="text-[10px] bg-blue-950 text-blue-400 border border-blue-800 px-2 py-0.5 rounded font-mono font-bold">READY</span>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Pan-India automated AWBs and shipping label generation directly synced with courier partners.
+                Automated AWBs and shipping label generation directly synced with courier partners.
               </p>
-              <div className="pt-2 flex items-center justify-between text-xs">
-                <span className="text-zinc-500 font-semibold">Origin Hub:</span>
-                <span className="font-mono text-zinc-300 text-[11px]">Patna, Bihar - 801503</span>
-              </div>
             </div>
-
           </div>
 
         </div>
       )}
 
-      {/* TAB 2: FLASH SALE EVENT ORGANIZER */}
+      {/* TAB 2: INVENTORY & STOCK CONTROL */}
+      {activeTab === 'inventory' && (
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wide">Catalog Inventory Control</h2>
+              <p className="text-xs text-zinc-400">Update product stock counts. Setting count to 0 switches the storefront button to "Notify Me".</p>
+            </div>
+            <button
+              onClick={fetchDashboardData}
+              className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5"
+            >
+              <FiRefreshCw className={loadingData ? 'animate-spin' : ''} /> Reload Catalog
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-zinc-300">
+              <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
+                <tr>
+                  <th className="p-3.5">Product Name</th>
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Price</th>
+                  <th className="p-3.5">Stock Count</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/80">
+                {products.map((prod) => {
+                  const stock = prod.countInStock !== undefined ? prod.countInStock : (prod.inStock ? 10 : 0);
+                  const isOut = stock <= 0;
+
+                  return (
+                    <tr key={prod._id} className="hover:bg-zinc-900/50 transition-colors">
+                      <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{prod.name}</td>
+                      <td className="p-3.5 text-zinc-400">{prod.mainGroup}</td>
+                      <td className="p-3.5 font-bold text-zinc-200">Rs {prod.price}</td>
+                      
+                      {/* STOCK COUNT FIELD / EDIT INLINE */}
+                      <td className="p-3.5">
+                        {editingStockId === prod._id ? (
+                          <input
+                            type="number"
+                            min="0"
+                            value={newStockCount}
+                            onChange={(e) => setNewStockCount(e.target.value)}
+                            className="w-20 bg-zinc-900 border border-amber-500 rounded px-2 py-1 text-white text-xs focus:outline-none"
+                          />
+                        ) : (
+                          <span className="font-mono font-bold text-sm text-zinc-100">{stock}</span>
+                        )}
+                      </td>
+
+                      {/* STATUS BADGE */}
+                      <td className="p-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                          isOut 
+                            ? 'bg-red-950 text-red-400 border border-red-800' 
+                            : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                        }`}>
+                          {isOut ? 'Out of Stock' : 'In Stock'}
+                        </span>
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td className="p-3.5 text-right">
+                        {editingStockId === prod._id ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleSaveStock(prod._id)}
+                              className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded cursor-pointer"
+                              title="Save Stock"
+                            >
+                              <FiCheck size={14} />
+                            </button>
+                            <button
+                              onClick={() => setEditingStockId(null)}
+                              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded cursor-pointer"
+                              title="Cancel"
+                            >
+                              <FiX size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingStockId(prod._id);
+                              setNewStockCount(stock);
+                            }}
+                            className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded cursor-pointer flex items-center gap-1 text-[11px] font-bold ml-auto"
+                          >
+                            <FiEdit3 size={12} /> Edit Stock
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: ORDER FULFILLMENT CENTER */}
+      {activeTab === 'orders' && (
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
+          <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wide">Order Fulfillment & Logistics</h2>
+              <p className="text-xs text-zinc-400">Review customer purchases and update dispatch statuses.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {safeOrders.length === 0 ? (
+              <p className="text-xs text-zinc-500 text-center py-12">No customer orders recorded yet.</p>
+            ) : (
+              safeOrders.map((order) => (
+                <div key={order._id} className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs border-b border-zinc-800/80 pb-3">
+                    <div>
+                      <span className="text-zinc-500 font-bold uppercase text-[10px] block">Order Ref</span>
+                      <span className="font-mono font-bold text-amber-400">#{order._id}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-zinc-500 font-bold uppercase text-[10px] block">Customer</span>
+                      <span className="font-bold text-zinc-200">{order.user?.name || 'Guest'} ({order.user?.email || 'N/A'})</span>
+                    </div>
+
+                    <div>
+                      <span className="text-zinc-500 font-bold uppercase text-[10px] block">Total Amount</span>
+                      <span className="font-bold text-white">Rs {order.totalPrice || order.itemsPrice}</span>
+                    </div>
+
+                    {/* STATUS SELECTOR */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-500 font-bold uppercase text-[10px]">Status:</span>
+                      <select
+                        value={order.status || (order.isDelivered ? 'Delivered' : 'Processing')}
+                        disabled={updatingOrderId === order._id}
+                        onChange={(e) => handleUpdateOrderStatus(order._id, e.target.value)}
+                        className="bg-zinc-800 border border-zinc-700 text-white text-xs font-bold rounded px-2 py-1 focus:outline-none"
+                      >
+                        <option value="Processing">Processing</option>
+                        <option value="In Transit">In Transit</option>
+                        <option value="Delivered">Delivered</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* ORDER ITEMS LIST */}
+                  <div className="text-xs space-y-1">
+                    {order.orderItems?.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-zinc-400">
+                        <span>• {item.name} (Qty: {item.qty})</span>
+                        <span className="font-mono text-zinc-300">Rs {item.qty * item.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: FLASH SALE EVENT ORGANIZER */}
       {activeTab === 'sales-organizer' && (
         <div className="space-y-8 animate-fade-in">
-          
-          {/* Sale Creation Form */}
           <div className="bg-[#18181b] border border-zinc-800 p-6 md:p-8 rounded-2xl shadow-xl space-y-6">
             <div className="border-b border-zinc-800 pb-4 flex items-center justify-between">
               <div>
@@ -381,7 +550,6 @@ const AdminDashboard = () => {
 
             <form onSubmit={handleCreateSaleEvent} className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Sale Event Title</label>
                   <input
@@ -405,7 +573,6 @@ const AdminDashboard = () => {
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors"
                   />
                 </div>
-
               </div>
 
               <div>
@@ -433,7 +600,6 @@ const AdminDashboard = () => {
                 </select>
               </div>
 
-              {/* Web Push Broadcast Checkbox */}
               <div className="flex items-center space-x-3 bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
                 <input
                   type="checkbox"
@@ -455,33 +621,6 @@ const AdminDashboard = () => {
               </button>
             </form>
           </div>
-
-          {/* Active Sale Events List */}
-          <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl space-y-4">
-            <h3 className="text-xs font-black text-zinc-500 uppercase tracking-wider">Active & Scheduled Sale Events</h3>
-            
-            <div className="divide-y divide-zinc-800/80">
-              {saleEvents.map((evt) => (
-                <div key={evt.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-white">{evt.title}</h4>
-                      <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-black px-2 py-0.5 rounded">
-                        {evt.discount}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-400">{evt.description}</p>
-                    <p className="text-[11px] text-zinc-500">Target: {evt.category} | Period: {evt.startDate} - {evt.endDate}</p>
-                  </div>
-
-                  <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-black uppercase px-3 py-1 rounded-full w-fit">
-                    ● {evt.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
       )}
 
