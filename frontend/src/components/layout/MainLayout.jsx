@@ -16,11 +16,12 @@ const MainLayout = () => {
 
   const hideLeftSidebar = isStandalonePage;
 
-  // Pages that hide right sidebar
+  // Pages that hide right sidebar (Includes Admin Dashboard)
   const hideRightSidebar = 
     location.pathname.startsWith('/profile') || 
     location.pathname.startsWith('/user-profile') || 
     location.pathname.startsWith('/checkout') ||
+    location.pathname.startsWith('/admin') || // 👈 Admin page preference
     isStandalonePage;
 
   return (
@@ -39,7 +40,7 @@ const MainLayout = () => {
           </div>
         )}
 
-        {/* Scrollable Main Area (Centered & Full-Width on Standalone pages) */}
+        {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto bg-[#0f0f0f] p-4 md:p-8 relative scrollbar-hide flex flex-col min-h-full">
           <div className="flex-1 w-full max-w-5xl mx-auto">
             <Outlet /> 

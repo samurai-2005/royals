@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 
 const LeftSidebar = () => {
   const categories = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Accessories'];
-  // Updated list: Only School Uniforms, NCC, and Security Guard
   const orgs = ['School Uniforms', 'NCC', 'Security Guard'];
 
   return (
