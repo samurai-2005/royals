@@ -35,28 +35,28 @@ const Navbar = ({ toggleSidebar }) => {
       message: 'Your school uniform order #RT-8492 is out for delivery via Shiprocket.',
       time: '10m ago',
       read: false,
-      targetUrl: '/user-profile',
+      targetUrl: '/orders', // 👈 Redirects directly to Orders.jsx
       isExpired: false
     },
     {
       id: '2',
       type: 'sale',
-      title: 'Flash Sale: 20% OFF Tracksuits 🔥',
-      message: 'Exclusive 24-hour price drop on NCC tracksuits and lower sets.',
+      title: 'Grand Independence Day Uniform Mega Sale 🔥',
+      message: 'Exclusive site-wide sale event on all school & security guard uniforms.',
       time: '2h ago',
       read: false,
-      targetUrl: '/deals',
+      targetUrl: '/deals', // 👈 Redirects to Deals event page
       isExpired: false
     },
     {
       id: '3',
       type: 'sale',
-      title: 'Weekend Uniform Clearance (50% OFF)',
-      message: 'Special clearance discount on Security Guard caps and badges.',
+      title: 'Monsoon Clearance Sale Event (50% OFF)',
+      message: 'Special clearance event on Security Guard caps and badges.',
       time: '2d ago',
       read: true,
       targetUrl: '/deals',
-      isExpired: true // Expired Sale
+      isExpired: true // Expired Sale Event
     }
   ]);
 
@@ -109,13 +109,13 @@ const Navbar = ({ toggleSidebar }) => {
       prev.map(n => n.id === notif.id ? { ...n, read: true } : n)
     );
 
-    // If it's an EXPIRED sale notification, DO NOT REDIRECT
+    // If it's an EXPIRED sale event notification, DO NOT REDIRECT
     if (notif.type === 'sale' && notif.isExpired) {
-      setExpiredBanner(`⚠️ The offer "${notif.title}" has expired!`);
+      setExpiredBanner(`⚠️ The sale event "${notif.title}" has expired!`);
       return;
     }
 
-    // Redirect to target URL (Order history or Active Deals page)
+    // Redirect to target URL (/orders for order updates, /deals for active sale events)
     if (notif.targetUrl) {
       setShowNotifications(false);
       navigate(notif.targetUrl);
@@ -127,7 +127,7 @@ const Navbar = ({ toggleSidebar }) => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
-  // Optional: Enable Push Permission directly from panel
+  // Enable Push Permission directly from panel
   const handleEnablePushPermissions = async () => {
     if (!('Notification' in window)) return;
     try {
