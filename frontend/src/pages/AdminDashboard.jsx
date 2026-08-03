@@ -18,7 +18,8 @@ import {
   FiAlertCircle, 
   FiX, 
   FiTrendingUp, 
-  FiCheck 
+  FiCheck,
+  FiUpload
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -43,7 +44,8 @@ const AdminDashboard = () => {
   const [prodDesc, setProdDesc] = useState('');
   const [prodMainGroup, setProdMainGroup] = useState('School Uniforms');
   const [prodSubGroup, setProdSubGroup] = useState('Unassigned');
-  const [prodImage, setProdImage] = useState('');
+  const [prodImages, setProdImages] = useState([]); // Array of picture URLs
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
 
   // Inventory Inline Edit State
@@ -55,6 +57,14 @@ const AdminDashboard = () => {
     setSearchParams({ tab: tabId });
   };
 
+  // Helper: Format full Image URL for local uploads or Cloudinary
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
   // Get Auth Header Helper
   const getAuthHeader = useCallback(() => {
     const userInfoString = localStorage.getItem('userInfo');
@@ -62,7 +72,7 @@ const AdminDashboard = () => {
     return userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : null;
   }, []);
 
-  // Fetch Dashboard Data
+  // Fetch Dashboard Data (Orders, Products, & Registered Users)
   const fetchDashboardData = useCallback(async () => {
     const config = getAuthHeader();
     if (!config) return;
@@ -79,11 +89,18 @@ const AdminDashboard = () => {
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
       setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
 
-      // Fetch users list
+      // Fetch users list from backend database
       try {
         const usersRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, config);
-        setUsersList(Array.isArray(usersRes.data) ? usersRes.data : []);
-      } catch {
+        if (Array.isArray(usersRes.data)) {
+          setUsersList(usersRes.data);
+        } else if (usersRes.data && Array.isArray(usersRes.data.users)) {
+          setUsersList(usersRes.data.users);
+        } else {
+          setUsersList([]);
+        }
+      } catch (userErr) {
+        console.warn('Users directory note:', userErr.message);
         setUsersList([]);
       }
     } catch (err) {
@@ -140,6 +157,41 @@ const AdminDashboard = () => {
     }
   };
 
+  // 📸 BACKEND FILE UPLOAD HANDLER
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploadingImage(true);
+    try {
+      const config = getAuthHeader() || {};
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...(config.headers || {})
+          }
+        }
+      );
+
+      // Extract uploaded image path from backend response
+      const uploadedPath = typeof data === 'string' ? data : (data.image || data.path || data.url);
+      if (uploadedPath) {
+        setProdImages(prev => [...prev, uploadedPath]);
+      }
+    } catch (err) {
+      console.error('File upload error:', err);
+      alert(err.response?.data?.message || 'Failed to upload image to server.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // 📦 PRODUCT: CREATE / EDIT PRODUCT HANDLER
   const handleOpenProductModal = (prod = null) => {
     if (prod) {
@@ -149,7 +201,11 @@ const AdminDashboard = () => {
       setProdDesc(prod.description);
       setProdMainGroup(prod.mainGroup);
       setProdSubGroup(prod.subGroup || 'Unassigned');
-      setProdImage(prod.images?.[0] || prod.image || '');
+      
+      const existingImgs = Array.isArray(prod.images) && prod.images.length > 0 
+        ? prod.images 
+        : (prod.image ? [prod.image] : []);
+      setProdImages(existingImgs);
     } else {
       setEditingProduct(null);
       setProdName('');
@@ -157,7 +213,7 @@ const AdminDashboard = () => {
       setProdDesc('');
       setProdMainGroup('School Uniforms');
       setProdSubGroup('Unassigned');
-      setProdImage('');
+      setProdImages([]);
     }
     setProductModalOpen(true);
   };
@@ -175,8 +231,8 @@ const AdminDashboard = () => {
         description: prodDesc,
         mainGroup: prodMainGroup,
         subGroup: prodSubGroup,
-        images: prodImage ? [prodImage] : [],
-        countInStock: editingProduct ? editingProduct.countInStock : 10 // Defaults to 10 on creation as requested
+        images: prodImages,
+        countInStock: editingProduct ? editingProduct.countInStock : 10
       };
 
       if (editingProduct) {
@@ -265,7 +321,7 @@ const AdminDashboard = () => {
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
-    { id: 'users', label: 'Users', icon: FiUsers },
+    { id: 'users', label: `Users (${usersList.length})`, icon: FiUsers },
   ];
 
   return (
@@ -327,8 +383,6 @@ const AdminDashboard = () => {
       {/* 💰 1. FINANCE SECTION */}
       {activeTab === 'finance' && (
         <div className="space-y-6 animate-fade-in">
-          
-          {/* Top Revenue Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
@@ -355,7 +409,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Orders Financial Records Table */}
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
             <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Per-Order Financial Records</h2>
 
@@ -411,14 +464,12 @@ const AdminDashboard = () => {
               </table>
             </div>
           </div>
-
         </div>
       )}
 
-      {/* 🚚 2. SHIPMENT SECTION (Shiprocket Hub) */}
+      {/* 🚚 2. SHIPMENT SECTION */}
       {activeTab === 'shipment' && (
         <div className="space-y-6 animate-fade-in">
-          
           <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
@@ -471,18 +522,16 @@ const AdminDashboard = () => {
               </table>
             </div>
           </div>
-
         </div>
       )}
 
       {/* 📦 3. PRODUCTS SECTION */}
       {activeTab === 'products' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
-          
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
             <div>
               <h2 className="text-base font-black text-white uppercase tracking-wide">Catalog Product Directory</h2>
-              <p className="text-xs text-zinc-400">List new uniforms or modify names, prices, sections, and subsections.</p>
+              <p className="text-xs text-zinc-400">List new uniforms or modify names, prices, pictures, sections, and subsections.</p>
             </div>
 
             <button
@@ -497,6 +546,7 @@ const AdminDashboard = () => {
             <table className="w-full text-left text-xs text-zinc-300">
               <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
                 <tr>
+                  <th className="p-3.5">Image</th>
                   <th className="p-3.5">Product Name</th>
                   <th className="p-3.5">Main Section</th>
                   <th className="p-3.5">Sub Section</th>
@@ -505,34 +555,46 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/80">
-                {products.map((p) => (
-                  <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
-                    <td className="p-3.5 font-bold text-white max-w-[220px] truncate">{p.name}</td>
-                    <td className="p-3.5 text-zinc-400">{p.mainGroup}</td>
-                    <td className="p-3.5 text-zinc-500">{p.subGroup || 'Unassigned'}</td>
-                    <td className="p-3.5 font-bold text-emerald-400">Rs {p.price}</td>
-                    <td className="p-3.5 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenProductModal(p)}
-                        className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors cursor-pointer"
-                        title="Edit Product"
-                      >
-                        <FiEdit3 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(p._id)}
-                        className="p-2 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
-                        title="Delete Product"
-                      >
-                        <FiTrash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {products.map((p) => {
+                  const firstImg = p.images?.[0] || p.image;
+
+                  return (
+                    <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
+                      <td className="p-3.5">
+                        <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                          {firstImg ? (
+                            <img src={getImageUrl(firstImg)} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <FiPackage className="text-zinc-600" size={16} />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{p.name}</td>
+                      <td className="p-3.5 text-zinc-400">{p.mainGroup}</td>
+                      <td className="p-3.5 text-zinc-500">{p.subGroup || 'Unassigned'}</td>
+                      <td className="p-3.5 font-bold text-emerald-400">Rs {p.price}</td>
+                      <td className="p-3.5 text-right space-x-2">
+                        <button
+                          onClick={() => handleOpenProductModal(p)}
+                          className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors cursor-pointer"
+                          title="Edit Product"
+                        >
+                          <FiEdit3 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(p._id)}
+                          className="p-2 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Product"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
         </div>
       )}
 
@@ -663,9 +725,18 @@ const AdminDashboard = () => {
       {/* 👥 6. USERS SECTION */}
       {activeTab === 'users' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
-          <div className="border-b border-zinc-800 pb-4">
-            <h2 className="text-base font-black text-white uppercase tracking-wide">Registered Active Users</h2>
-            <p className="text-xs text-zinc-400">View signed in website visitors and user account details.</p>
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wide">Registered Customer Directory</h2>
+              <p className="text-xs text-zinc-400">All registered user accounts fetched directly from MongoDB database.</p>
+            </div>
+            
+            <button
+              onClick={fetchDashboardData}
+              className="text-xs text-amber-400 font-bold flex items-center gap-1 hover:text-amber-300 transition-colors"
+            >
+              <FiRefreshCw className={loadingData ? 'animate-spin' : ''} size={13} /> Sync Users
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -674,26 +745,26 @@ const AdminDashboard = () => {
                 <tr>
                   <th className="p-3.5">User Name</th>
                   <th className="p-3.5">Email Address</th>
-                  <th className="p-3.5">Phone</th>
-                  <th className="p-3.5">Role</th>
+                  <th className="p-3.5">Phone Number</th>
+                  <th className="p-3.5">Account Role</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/80">
                 {usersList.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="p-8 text-center text-zinc-500">
-                      Active session users loaded directly from current sessions.
+                      No user records returned from `/api/users`. Ensure your user route exists or refresh live data.
                     </td>
                   </tr>
                 ) : (
                   usersList.map((u) => (
                     <tr key={u._id} className="hover:bg-zinc-900/50 transition-colors">
                       <td className="p-3.5 font-bold text-white">{u.name}</td>
-                      <td className="p-3.5 text-zinc-400">{u.email}</td>
-                      <td className="p-3.5 text-zinc-400">{u.phone || 'N/A'}</td>
+                      <td className="p-3.5 text-zinc-300 font-medium">{u.email}</td>
+                      <td className="p-3.5 text-zinc-400 font-mono">{u.phone || 'N/A'}</td>
                       <td className="p-3.5">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          u.isAdmin ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-zinc-800 text-zinc-300'
+                          u.isAdmin ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
                         }`}>
                           {u.isAdmin ? 'Administrator' : 'Customer'}
                         </span>
@@ -707,10 +778,10 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* MODAL: ADD / EDIT PRODUCT */}
+      {/* 🖼️ MODAL: ADD / EDIT PRODUCT WITH IMAGE UPLOAD GALLERY */}
       {productModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onClick={() => setProductModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
               <FiX size={20} />
             </button>
@@ -780,21 +851,54 @@ const AdminDashboard = () => {
                 />
               </div>
 
+              {/* 📸 PRODUCT GALLERY & UPLOAD MORE PICTURES BUTTON */}
               <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Image URL</label>
-                <input
-                  type="text"
-                  value={prodImage}
-                  onChange={(e) => setProdImage(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
-                />
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                  Product Pictures ({prodImages.length} Uploaded)
+                </label>
+                
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-xl min-h-[90px]">
+                  {/* Thumbnails of already uploaded product pictures */}
+                  {prodImages.map((imgUrl, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-700 bg-zinc-800 group flex-shrink-0">
+                      <img src={getImageUrl(imgUrl)} alt={`Product ${idx}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setProdImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute inset-0 bg-red-950/80 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Delete Image"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* 📤 Native Upload Picture Button */}
+                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-700 hover:border-amber-500 flex flex-col items-center justify-center text-zinc-400 hover:text-amber-400 cursor-pointer transition-colors text-center p-1 bg-zinc-900/50 flex-shrink-0">
+                    {uploadingImage ? (
+                      <FiRefreshCw className="animate-spin text-amber-400" size={18} />
+                    ) : (
+                      <>
+                        <FiUpload size={16} />
+                        <span className="text-[9px] font-bold mt-1 leading-tight">+ Add</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">Upload product pictures. The first image will be used as the primary card cover.</p>
               </div>
 
               <button
                 type="submit"
                 disabled={savingProduct}
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2"
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2 disabled:opacity-50"
               >
                 {savingProduct ? 'Saving to Database...' : 'Save Product to Database'}
               </button>
