@@ -9,6 +9,14 @@ const RightSidebar = () => {
   const [discountedProducts, setDiscountedProducts] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Helper to safely resolve image URLs (handles http/https links, arrays, & slash formatting)
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http')) return imagePath;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
+    return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
   // Fetch products and filter for active sales
   useEffect(() => {
     const fetchDeals = async () => {
@@ -35,6 +43,13 @@ const RightSidebar = () => {
   // Calculate Cart totals
   const itemsPrice = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
 
+  // Resolve current active sale product & image URL
+  const currentProduct = discountedProducts[currentIndex];
+  const rawImg = currentProduct?.images && currentProduct.images.length > 0 
+    ? currentProduct.images[0] 
+    : currentProduct?.image;
+  const imgUrl = getImageUrl(rawImg);
+
   return (
     <div className="w-72 bg-[#18181b] border-l border-zinc-800 p-5 flex flex-col h-full z-10 shadow-2xl relative pt-6">
       
@@ -44,21 +59,21 @@ const RightSidebar = () => {
           <FiTag className="mr-2" /> Flash Sales
         </h2>
         
-        {discountedProducts.length > 0 ? (
+        {discountedProducts.length > 0 && currentProduct ? (
           <div className="relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden group shadow-lg">
-            <Link to={`/product/${discountedProducts[currentIndex]._id}`} className="block relative aspect-square">
+            <Link to={`/product/${currentProduct._id}`} className="block relative aspect-square">
               
               {/* Sale Badge */}
               <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded z-10 shadow-lg">
-                {discountedProducts[currentIndex].discountPercentage}% OFF
+                {currentProduct.discountPercentage}% OFF
               </div>
               
               {/* Image */}
-              {discountedProducts[currentIndex].images?.length > 0 ? (
+              {imgUrl ? (
                 <img 
-                 src={`${import.meta.env.VITE_BACKEND_URL}${discountedProducts[currentIndex].images[0]}`}
+                  src={imgUrl}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                  alt="deal"
+                  alt={currentProduct.name || "deal"}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500 text-xs">No Image</div>
@@ -66,10 +81,10 @@ const RightSidebar = () => {
 
               {/* Gradient Overlay & Info */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 pt-12">
-                 <p className="text-white font-bold text-sm truncate">{discountedProducts[currentIndex].name}</p>
+                 <p className="text-white font-bold text-sm truncate">{currentProduct.name}</p>
                  <div className="flex items-center gap-2 mt-1">
-                   <span className="text-lg font-black text-white">Rs {discountedProducts[currentIndex].discountPrice}</span>
-                   <span className="text-xs font-bold text-zinc-400 line-through">Rs {discountedProducts[currentIndex].price}</span>
+                   <span className="text-lg font-black text-white">Rs {currentProduct.discountPrice}</span>
+                   <span className="text-xs font-bold text-zinc-400 line-through">Rs {currentProduct.price}</span>
                  </div>
               </div>
             </Link>
@@ -77,13 +92,13 @@ const RightSidebar = () => {
             {/* Slideshow Manual Controls */}
             <button 
               onClick={() => setCurrentIndex(prev => (prev === 0 ? discountedProducts.length - 1 : prev - 1))}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90 backdrop-blur-sm"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90 backdrop-blur-sm cursor-pointer"
             >
               <FiChevronLeft size={16} />
             </button>
             <button 
               onClick={() => setCurrentIndex(prev => (prev + 1) % discountedProducts.length)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90 backdrop-blur-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90 backdrop-blur-sm cursor-pointer"
             >
               <FiChevronRight size={16} />
             </button>
