@@ -17,6 +17,9 @@ import BulkOrder from './pages/BulkOrder';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders';
 
+// Admin Command Center Page
+import AdminDashboard from './pages/AdminDashboard';
+
 // Compliance & Customer Support Pages
 import Contact from './pages/Contact';
 import PolicyPage from './pages/PolicyPage';
@@ -92,9 +95,10 @@ function App() {
                   <Route path="privacy-policy" element={<PolicyPage />} />
                   <Route path="terms-and-conditions" element={<PolicyPage />} />
                   
-                  {/* Protected Admin Route */}
+                  {/* Protected Admin Routes */}
                   <Route element={<AdminRoute />}>
                     <Route path="profile" element={<Profile />} />
+                    <Route path="admin/dashboard" element={<AdminDashboard />} />
                   </Route>
                 </Route>
                 

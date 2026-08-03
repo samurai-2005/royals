@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { FiShoppingBag, FiTruck } from 'react-icons/fi';
+import { FiShoppingBag, FiTruck, FiBell, FiCheckCircle } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 
 const ProductDetail = () => {
@@ -13,7 +13,10 @@ const ProductDetail = () => {
   const [pincode, setPincode] = useState('');
   const [pincodeStatus, setPincodeStatus] = useState(null);
 
-  // Helper function to handle Cloudinary HTTPS links and fallback URLs
+  // "Notify Me" Waitlist States
+  const [subscribing, setSubscribing] = useState(false);
+  const [notifySuccess, setNotifySuccess] = useState(false);
+
   const getImageUrl = (imagePath) => {
     if (!imagePath) return 'https://via.placeholder.com/500x500/18181b/ffffff?text=No+Image';
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
@@ -35,6 +38,47 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id]);
 
+  // Handle "Notify Me" click for Out-of-Stock items
+  const handleNotifyMe = async () => {
+    setSubscribing(true);
+    try {
+      let subscription = null;
+
+      // 1. Request push permission if available
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const registration = await navigator.serviceWorker.ready;
+          const publicVapidKey = import.meta.env.VITE_PUBLIC_VAPID_KEY;
+
+          if (publicVapidKey) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: publicVapidKey
+            });
+          }
+        }
+      }
+
+      const userInfo = JSON.parse(localStorage.getItem('userInfo')) || {};
+      const config = userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : {};
+
+      // 2. Submit to backend waitlist
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}/notify-me`,
+        { subscription, email: userInfo?.email },
+        config
+      );
+
+      setNotifySuccess(true);
+    } catch (err) {
+      console.error('Failed to register restock notification:', err);
+      alert('Could not subscribe for restock alerts. Please try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   if (!product) {
     return (
       <div className="flex justify-center items-center h-96 text-zinc-500">
@@ -44,6 +88,7 @@ const ProductDetail = () => {
   }
 
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
+  const isOutOfStock = product.countInStock !== undefined ? product.countInStock <= 0 : !product.inStock;
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -55,11 +100,20 @@ const ProductDetail = () => {
             <img 
               src={getImageUrl(images[selectedImage])} 
               alt={product.name} 
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-60 grayscale' : ''}`}
             />
-            {product.discountPercentage > 0 && (
+            
+            {/* Sale Badge */}
+            {product.discountPercentage > 0 && !isOutOfStock && (
               <span className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase shadow-lg">
                 {product.discountPercentage}% OFF
+              </span>
+            )}
+
+            {/* Out of Stock Overlay Badge */}
+            {isOutOfStock && (
+              <span className="absolute top-4 left-4 bg-zinc-800 text-red-400 border border-red-500/30 text-xs font-black px-3 py-1.5 rounded-full uppercase shadow-lg">
+                Sold Out
               </span>
             )}
           </div>
@@ -82,7 +136,7 @@ const ProductDetail = () => {
           )}
         </div>
 
-        {/* Right: Product Details & Add to Cart */}
+        {/* Right: Product Details & Add to Cart / Notify Me */}
         <div className="space-y-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -92,6 +146,11 @@ const ProductDetail = () => {
               <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
                 {product.subGroup}
               </span>
+              {isOutOfStock && (
+                <span className="bg-red-950/80 text-red-400 border border-red-800/80 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
+                  Out of Stock
+                </span>
+              )}
             </div>
 
             <h1 className="text-2xl md:text-3xl font-black text-white">{product.name}</h1>
@@ -124,7 +183,7 @@ const ProductDetail = () => {
               />
               <button 
                 onClick={() => setPincodeStatus(pincode.length === 6 ? 'Deliverable to your area in 3-5 days' : 'Invalid Pincode')}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+                className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 Check
               </button>
@@ -154,13 +213,32 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Add to Cart Button */}
-          <button
-            onClick={() => addToCart({ ...product, size: selectedSize })}
-            className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors shadow-lg text-base"
-          >
-            <FiShoppingBag size={20} /> Add to Cart
-          </button>
+          {/* DYNAMIC ACTION BUTTON: Add to Cart OR Notify Me when In Stock */}
+          {isOutOfStock ? (
+            <div className="space-y-3">
+              {notifySuccess ? (
+                <div className="w-full bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold p-4 rounded-xl flex items-center justify-center gap-2 text-xs">
+                  <FiCheckCircle size={16} /> Subscribed! We will push a notification as soon as this item is restocked.
+                </div>
+              ) : (
+                <button
+                  onClick={handleNotifyMe}
+                  disabled={subscribing}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer text-base"
+                >
+                  <FiBell size={20} /> {subscribing ? 'Subscribing...' : 'Notify Me When In Stock'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => addToCart({ ...product, size: selectedSize })}
+              className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors shadow-lg cursor-pointer text-base"
+            >
+              <FiShoppingBag size={20} /> Add to Cart
+            </button>
+          )}
+
         </div>
 
       </div>

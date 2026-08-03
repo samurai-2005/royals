@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
+const sendPushNotification = require('../utils/pushNotification');
 
-// Helper: Converts slugs like "school-uniforms" or "security_guard" to flexible regex matching "School Uniforms"
+// Helper: Converts slugs like "school-uniforms" to flexible regex matching "School Uniforms"
 const createFlexibleRegex = (paramStr) => {
   if (!paramStr) return null;
   const sanitized = paramStr.trim().replace(/[-_]/g, '[\\s\\-_]+');
@@ -14,7 +15,6 @@ const getProducts = async (req, res) => {
     const { mainGroup, subGroup, category, type } = req.query;
     let query = {};
 
-    // 1. If frontend passes a generic 'category' or 'type' query (e.g. ?category=school-uniforms)
     if (category || type) {
       const catRegex = createFlexibleRegex(category || type);
       query.$or = [
@@ -22,14 +22,8 @@ const getProducts = async (req, res) => {
         { subGroup: catRegex }
       ];
     } else {
-      // 2. Specific mainGroup and/or subGroup queries
-      if (mainGroup) {
-        query.mainGroup = createFlexibleRegex(mainGroup);
-      }
-      
-      if (subGroup) {
-        query.subGroup = createFlexibleRegex(subGroup);
-      }
+      if (mainGroup) query.mainGroup = createFlexibleRegex(mainGroup);
+      if (subGroup) query.subGroup = createFlexibleRegex(subGroup);
     }
 
     const products = await Product.find(query);
@@ -75,12 +69,15 @@ const createProduct = async (req, res) => {
       images, 
       isPromotional, 
       discountPrice,
-      discountPercentage 
+      discountPercentage,
+      countInStock 
     } = req.body;
 
     if (!mainGroup) {
       return res.status(400).json({ message: 'mainGroup is required.' });
     }
+
+    const stockCount = countInStock !== undefined ? Number(countInStock) : 10;
 
     const product = new Product({
       name,
@@ -91,7 +88,9 @@ const createProduct = async (req, res) => {
       images: images || [],
       isPromotional: isPromotional || false,
       discountPrice: discountPrice || 0,
-      discountPercentage: discountPercentage || 0
+      discountPercentage: discountPercentage || 0,
+      countInStock: stockCount,
+      inStock: stockCount > 0
     });
 
     const createdProduct = await product.save();
@@ -101,19 +100,21 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Update a product 
+// @desc    Update a product & dispatch Restock Push Notifications if restocked
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res) => {
   try {
     const { 
-      name, price, description, images, mainGroup, subGroup, discountPrice, discountPercentage 
+      name, price, description, images, mainGroup, subGroup, discountPrice, discountPercentage, countInStock 
     } = req.body;
     
     const product = await Product.findById(req.params.id);
 
     if (product) {
+      const wasOutOfStock = product.countInStock <= 0 || !product.inStock;
+
       product.name = name || product.name;
-      product.price = price || product.price;
+      product.price = price !== undefined ? price : product.price;
       product.description = description || product.description;
       product.images = images || product.images; 
       product.mainGroup = mainGroup || product.mainGroup;
@@ -121,6 +122,32 @@ const updateProduct = async (req, res) => {
       
       if (discountPrice !== undefined) product.discountPrice = discountPrice;
       if (discountPercentage !== undefined) product.discountPercentage = discountPercentage;
+
+      if (countInStock !== undefined) {
+        product.countInStock = Number(countInStock);
+        product.inStock = product.countInStock > 0;
+      }
+
+      const isNowInStock = product.countInStock > 0;
+
+      // 🔔 TRIGGER RESTOCK PUSH NOTIFICATION IF STOCK WAS RESTOCKED FROM 0
+      if (wasOutOfStock && isNowInStock && product.restockSubscribers?.length > 0) {
+        const payload = {
+          title: `Item Restocked! 🎉`,
+          body: `Good news! "${product.name}" is back in stock. Order now before it runs out.`,
+          url: `/product/${product._id}`
+        };
+
+        // Dispatch Web Push to all waiting customers
+        for (const subscriber of product.restockSubscribers) {
+          if (subscriber.subscription) {
+            await sendPushNotification(subscriber.subscription, payload);
+          }
+        }
+
+        // Clear subscriber queue after dispatch
+        product.restockSubscribers = [];
+      }
 
       const updatedProduct = await product.save();
       res.json(updatedProduct);
@@ -132,9 +159,43 @@ const updateProduct = async (req, res) => {
   }
 };
 
+// @desc    Subscribe user to "Notify Me" restock waitlist
+// @route   POST /api/products/:id/notify-me
+const subscribeToRestock = async (req, res) => {
+  try {
+    const { subscription, email } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    if (product.countInStock > 0) {
+      return res.status(400).json({ message: 'Product is currently in stock.' });
+    }
+
+    // Check if subscription already exists in waitlist
+    const alreadySubscribed = product.restockSubscribers.some(
+      (sub) => sub.subscription?.endpoint === subscription?.endpoint || (email && sub.email === email)
+    );
+
+    if (!alreadySubscribed) {
+      product.restockSubscribers.push({
+        user: req.user?._id || null,
+        email: email || req.user?.email || null,
+        subscription
+      });
+      await product.save();
+    }
+
+    res.status(200).json({ message: 'Successfully subscribed to restock notifications!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Delete a product
 // @route   DELETE /api/products/:id
-// @access  Private/Admin
 const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -195,6 +256,7 @@ module.exports = {
   getPromotionalProducts,
   createProduct,
   updateProduct,
+  subscribeToRestock,
   deleteProduct,
   createProductReview
 };

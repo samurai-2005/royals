@@ -1,12 +1,22 @@
 const mongoose = require('mongoose');
 
-// Define a separate schema for individual reviews so we can track who left them
+// Define a separate schema for individual reviews
 const reviewSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
     name: { type: String, required: true },
     rating: { type: Number, required: true },
     comment: { type: String, required: true },
+  },
+  { timestamps: true }
+);
+
+// Schema for Restock Subscribers ("Notify Me" Waitlist)
+const restockSubscriberSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    email: { type: String },
+    subscription: { type: Object }, // Web Push Subscription Payload
   },
   { timestamps: true }
 );
@@ -31,9 +41,23 @@ const productSchema = new mongoose.Schema({
   },
   
   isPromotional: { type: Boolean, default: false },
-  inStock: { type: Boolean, default: true },
 
-  // NEW REVIEW FIELDS
+  // INVENTORY MANAGEMENT
+  countInStock: {
+    type: Number,
+    required: true,
+    default: 10,
+    min: 0,
+  },
+  inStock: { 
+    type: Boolean, 
+    default: true 
+  },
+
+  // "NOTIFY ME" WAITLIST SUBSCRIBERS
+  restockSubscribers: [restockSubscriberSchema],
+
+  // REVIEWS & RATINGS
   reviews: [reviewSchema],
   rating: {
     type: Number,

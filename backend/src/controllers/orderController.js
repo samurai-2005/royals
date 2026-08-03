@@ -1,11 +1,12 @@
 const Order = require('../models/Order');
+const Product = require('../models/Product');
 const sendEmail = require('../utils/sendEmail');
 const {
   getOrderConfirmationTemplate,
   getOrderStatusUpdateTemplate,
 } = require('../utils/emailTemplates');
 
-// @desc    Create new order
+// @desc    Create new order & automatically deduct stock inventory
 // @route   POST /api/orders
 const addOrderItems = async (req, res) => {
   try {
@@ -18,33 +19,62 @@ const addOrderItems = async (req, res) => {
       totalPrice,
     } = req.body;
 
-    if (orderItems && orderItems.length === 0) {
-      res.status(400).json({ message: 'No order items' });
+    if (!orderItems || orderItems.length === 0) {
+      res.status(400).json({ message: 'No order items provided.' });
       return;
-    } else {
-      const order = new Order({
-        user: req.user._id, // Attached by authMiddleware
-        orderItems,
-        shippingAddress,
-        paymentMethod,
-        itemsPrice,
-        shippingPrice,
-        totalPrice,
-      });
+    }
 
-      const createdOrder = await order.save();
+    // 1. Verify stock availability for all requested items
+    for (const item of orderItems) {
+      const productId = item.product || item._id;
+      const product = await Product.findById(productId);
 
-      // Send confirmation email asynchronously
-      if (req.user && req.user.email) {
-        sendEmail({
-          to: req.user.email,
-          subject: `Order Confirmation #${createdOrder._id} - Royal Tailor`,
-          html: getOrderConfirmationTemplate(createdOrder, req.user),
-        });
+      if (!product) {
+        return res.status(404).json({ message: `Product "${item.name}" not found.` });
       }
 
-      res.status(201).json(createdOrder);
+      if (product.countInStock < item.qty) {
+        return res.status(400).json({
+          message: `Insufficient stock for "${product.name}". Only ${product.countInStock} item(s) available.`
+        });
+      }
     }
+
+    // 2. Create and save the order
+    const order = new Order({
+      user: req.user._id, // Attached by authMiddleware
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      itemsPrice,
+      shippingPrice,
+      totalPrice,
+    });
+
+    const createdOrder = await order.save();
+
+    // 3. Deduct inventory count for each purchased item
+    for (const item of orderItems) {
+      const productId = item.product || item._id;
+      const product = await Product.findById(productId);
+
+      if (product) {
+        product.countInStock = Math.max(0, product.countInStock - item.qty);
+        product.inStock = product.countInStock > 0;
+        await product.save();
+      }
+    }
+
+    // Send confirmation email asynchronously
+    if (req.user && req.user.email) {
+      sendEmail({
+        to: req.user.email,
+        subject: `Order Confirmation #${createdOrder._id} - Royal Tailor`,
+        html: getOrderConfirmationTemplate(createdOrder, req.user),
+      });
+    }
+
+    res.status(201).json(createdOrder);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
