@@ -1,4 +1,3 @@
-
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -13,7 +12,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || 'You have a new update from The Royal Tailor.',
     icon: data.icon || '/icon-192.png',
-    badge: '/badge-72.png',
+    badge: '/icon-192.png', // 👈 FIXED: Pointing to an image that actually exists!
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/'
