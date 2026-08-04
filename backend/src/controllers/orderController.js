@@ -1,21 +1,12 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User'); // Required to save in-app notifications
+const User = require('../models/User'); 
 const sendEmail = require('../utils/sendEmail');
 const webpush = require('web-push');
 const {
   getOrderConfirmationTemplate,
   getOrderStatusUpdateTemplate,
 } = require('../utils/emailTemplates');
-
-// Configure Web Push with your VAPID Keys
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    'mailto:support@royaltailors.net', // Change to your actual support email
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-}
 
 // @desc    Create new order & automatically deduct stock inventory
 // @route   POST /api/orders
@@ -35,7 +26,6 @@ const addOrderItems = async (req, res) => {
       return;
     }
 
-    // 1. Verify stock availability for all requested items
     for (const item of orderItems) {
       const productId = item.product || item._id;
       const product = await Product.findById(productId);
@@ -51,9 +41,8 @@ const addOrderItems = async (req, res) => {
       }
     }
 
-    // 2. Create and save the order
     const order = new Order({
-      user: req.user._id, // Attached by authMiddleware
+      user: req.user._id, 
       orderItems,
       shippingAddress,
       paymentMethod,
@@ -64,7 +53,6 @@ const addOrderItems = async (req, res) => {
 
     const createdOrder = await order.save();
 
-    // 3. Deduct inventory count for each purchased item
     for (const item of orderItems) {
       const productId = item.product || item._id;
       const product = await Product.findById(productId);
@@ -76,7 +64,6 @@ const addOrderItems = async (req, res) => {
       }
     }
 
-    // Send confirmation email asynchronously
     if (req.user && req.user.email) {
       sendEmail({
         to: req.user.email,
@@ -122,7 +109,6 @@ const updateOrderStatus = async (req, res) => {
     if (order) {
       order.status = req.body.status || order.status;
       
-      // If status is marked as Delivered, update timestamp and boolean
       if (req.body.status === 'Delivered') {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
@@ -144,19 +130,29 @@ const updateOrderStatus = async (req, res) => {
         await userToNotify.save();
 
         // 📱 2. Trigger PWA Web Push to Phone (If user subscribed)
-        if (userToNotify.pushSubscription && process.env.VAPID_PUBLIC_KEY) {
+        if (userToNotify.pushSubscription && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
           try {
+            // Configure VAPID right before sending to guarantee env vars are loaded
+            webpush.setVapidDetails(
+              'mailto:support@royaltailors.net', 
+              process.env.VAPID_PUBLIC_KEY,
+              process.env.VAPID_PRIVATE_KEY
+            );
+
             await webpush.sendNotification(
               userToNotify.pushSubscription,
               JSON.stringify({
                 title: notificationPayload.title,
                 body: notificationPayload.message,
-                url: 'https://royaltailors.net/orders' // Modify domain for prod
+                url: 'https://royaltailors.net/orders' 
               })
             );
+            console.log('✅ Web Push Sent Successfully to device.');
           } catch (pushErr) {
-            console.warn('Web Push Failed (User might have revoked permission or token expired):', pushErr.message);
+            console.warn('⚠️ Web Push Failed (User might have revoked permission or token expired):', pushErr.message);
           }
+        } else {
+          console.warn('⚠️ Push skipped: User has no active subscription or VAPID keys are missing from .env');
         }
       }
 
