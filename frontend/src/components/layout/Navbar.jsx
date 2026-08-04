@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   FiSearch, 
@@ -16,31 +16,44 @@ import {
 import axios from 'axios';
 import { useCart } from '../../context/CartContext';
 
+// Utility to convert VAPID string to Uint8Array (Regex warning fixed)
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 const Navbar = ({ toggleSidebar }) => {
   const [keyword, setKeyword] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [expiredBanner, setExpiredBanner] = useState(null);
-  const [notifications, setNotifications] = useState([]); // Array bound to MongoDB
+  const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
 
   const navigate = useNavigate();
   useLocation(); 
   const { cartCount } = useCart();
 
-  const getUser = useCallback(() => {
+  // Removed useCallback to prevent React Compiler memoization clashes
+  const getUser = () => {
     try {
       const userInfoString = localStorage.getItem('userInfo');
       return userInfoString ? JSON.parse(userInfoString) : null;
     } catch {
       return null;
     }
-  }, []);
+  };
 
   const user = getUser();
-  const userToken = user?.token; // Extract token as a primitive string
+  const userToken = user?.token;
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // 🔔 Fetch Live Notifications from Database
+  // 1. 🔔 Fetch Live Notifications from Database
   useEffect(() => {
     if (userToken) {
       const fetchNotifications = async () => {
@@ -54,11 +67,64 @@ const Navbar = ({ toggleSidebar }) => {
       };
 
       fetchNotifications();
-      // Poll every 30 seconds for live updates
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
-  }, [userToken]); // <-- Perfectly clean dependency array
+  }, [userToken]);
+
+  // 2. 📱 SELF-HEALING PUSH SUBSCRIPTION SYNC (useCallback removed)
+  const syncPushSubscription = async (token) => {
+    if (token && 'serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        if (Notification.permission === 'granted') {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+          
+          const publicVapidKey = import.meta.env.VITE_PUBLIC_VAPID_KEY;
+          if (!publicVapidKey) {
+            console.error("⚠️ VITE_PUBLIC_VAPID_KEY is missing! Restart your Vite server.");
+            return;
+          }
+
+          let subscription = await registration.pushManager.getSubscription();
+
+          // Try to subscribe. If it fails (due to old ghost keys), wipe it and retry!
+          try {
+            if (!subscription) {
+              subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+              });
+            }
+          } catch (subErr) {
+            console.warn("Ghost subscription detected. Resetting...", subErr);
+            if (subscription) await subscription.unsubscribe();
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+          }
+
+          // Send healthy subscription to MongoDB
+          if (subscription) {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            await axios.post(
+              `${import.meta.env.VITE_BACKEND_URL}/api/users/subscribe-push`,
+              { subscription },
+              config
+            );
+          }
+        }
+      } catch (err) {
+        console.error('Push Sync Error:', err);
+      }
+    }
+  };
+
+  // Run auto-sync on load
+  useEffect(() => {
+    syncPushSubscription(userToken);
+  }, [userToken]);
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
@@ -67,7 +133,6 @@ const Navbar = ({ toggleSidebar }) => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Helper: Format Database timestamp to "10m ago"
   const formatTimeAgo = (dateString) => {
     const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
     let interval = seconds / 31536000;
@@ -101,14 +166,10 @@ const Navbar = ({ toggleSidebar }) => {
     }
   };
 
-  // Mark single notification read
   const handleNotificationClick = async (notif) => {
     setExpiredBanner(null);
-
-    // Optimistic UI Update
     setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, read: true } : n));
 
-    // Update DB securely
     if (userToken) {
       try {
         const config = { headers: { Authorization: `Bearer ${userToken}` } };
@@ -129,7 +190,6 @@ const Navbar = ({ toggleSidebar }) => {
     }
   };
 
-  // Mark all read
   const handleMarkAllRead = async () => {
     if (!userToken) return;
     try {
@@ -141,27 +201,16 @@ const Navbar = ({ toggleSidebar }) => {
     }
   };
 
+  // Manual Trigger from Dropdown
   const handleEnablePushPermissions = async () => {
     if (!('Notification' in window)) return;
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        const registration = await navigator.serviceWorker.ready;
-        const publicVapidKey = import.meta.env.VITE_PUBLIC_VAPID_KEY;
-
-        if (publicVapidKey) {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: publicVapidKey
-          });
-
-          const config = userToken ? { headers: { Authorization: `Bearer ${userToken}` } } : {};
-          await axios.post(
-            `${import.meta.env.VITE_BACKEND_URL}/api/users/subscribe-push`,
-            { subscription },
-            config
-          );
-        }
+        await syncPushSubscription(userToken);
+        alert('✅ Push Notifications Synced Successfully!');
+      } else {
+        alert('Notification permission denied by your browser settings.');
       }
     } catch (err) {
       console.error('Push permission error:', err);
