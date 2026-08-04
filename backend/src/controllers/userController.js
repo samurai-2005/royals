@@ -405,6 +405,57 @@ const getUsers = async (req, res) => {
   }
 };
 
+// @desc    Get user notifications
+// @route   GET /api/users/notifications
+// @access  Private
+const getNotifications = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('notifications');
+    res.json(user.notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark a specific notification as read
+// @route   PUT /api/users/notifications/:id/read
+// @access  Private
+const markNotificationRead = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      const notif = user.notifications.id(req.params.id);
+      if (notif) {
+        notif.read = true;
+        await user.save();
+      }
+      res.json({ message: 'Notification marked as read' });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark all notifications as read
+// @route   PUT /api/users/notifications/read-all
+// @access  Private
+const markAllNotificationsRead = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.notifications.forEach(notif => notif.read = true);
+      await user.save();
+      res.json({ message: 'All notifications marked as read' });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   authUser,
   registerUser,
@@ -415,4 +466,7 @@ module.exports = {
   updateUserProfile,
   savePushSubscription,
   getUsers,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 };

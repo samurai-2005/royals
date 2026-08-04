@@ -1,11 +1,22 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+// Define individual notification structure
+const notificationSchema = new mongoose.Schema({
+  type: { type: String, default: 'general' },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  targetUrl: { type: String },
+  read: { type: Boolean, default: false },
+  isExpired: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    phone: { type: String, unique: true, sparse: true }, // sparse allows legacy accounts to add phone numbers
+    phone: { type: String, unique: true, sparse: true }, 
     password: { type: String, required: true },
     role: { type: String, default: 'user' },
     isAdmin: { type: Boolean, default: false },
@@ -20,7 +31,11 @@ const userSchema = new mongoose.Schema(
     otp: { type: String },
     otpExpires: { type: Date },
     
-    googleId: { type: String }
+    googleId: { type: String },
+
+    // LIVE NOTIFICATIONS & PUSH SUBSCRIPTION
+    pushSubscription: { type: Object, default: null },
+    notifications: [notificationSchema]
   },
   { timestamps: true }
 );
@@ -30,7 +45,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Encrypt password before saving (Modern Async Hook)
+// Encrypt password before saving
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) {
     return;

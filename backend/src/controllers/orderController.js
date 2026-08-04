@@ -1,10 +1,21 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const User = require('../models/User'); // Required to save in-app notifications
 const sendEmail = require('../utils/sendEmail');
+const webpush = require('web-push');
 const {
   getOrderConfirmationTemplate,
   getOrderStatusUpdateTemplate,
 } = require('../utils/emailTemplates');
+
+// Configure Web Push with your VAPID Keys
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@royaltailors.net', // Change to your actual support email
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 // @desc    Create new order & automatically deduct stock inventory
 // @route   POST /api/orders
@@ -102,7 +113,7 @@ const getOrders = async (req, res) => {
   }
 };
 
-// @desc    Update order status (ADMIN ONLY)
+// @desc    Update order status (ADMIN ONLY) + Trigger In-App Notification and Web Push
 // @route   PUT /api/orders/:id/status
 const updateOrderStatus = async (req, res) => {
   try {
@@ -119,7 +130,37 @@ const updateOrderStatus = async (req, res) => {
 
       const updatedOrder = await order.save();
 
-      // Send email update to customer
+      // 🔔 1. Save In-App Notification to User Database
+      const userToNotify = await User.findById(order.user._id);
+      if (userToNotify) {
+        const notificationPayload = {
+          type: 'order',
+          title: `Order ${updatedOrder.status}! 🚚`,
+          message: `Your order #${updatedOrder._id.toString().slice(-6).toUpperCase()} has been marked as ${updatedOrder.status}.`,
+          targetUrl: '/orders',
+        };
+        
+        userToNotify.notifications.unshift(notificationPayload);
+        await userToNotify.save();
+
+        // 📱 2. Trigger PWA Web Push to Phone (If user subscribed)
+        if (userToNotify.pushSubscription && process.env.VAPID_PUBLIC_KEY) {
+          try {
+            await webpush.sendNotification(
+              userToNotify.pushSubscription,
+              JSON.stringify({
+                title: notificationPayload.title,
+                body: notificationPayload.message,
+                url: 'https://royaltailors.net/orders' // Modify domain for prod
+              })
+            );
+          } catch (pushErr) {
+            console.warn('Web Push Failed (User might have revoked permission or token expired):', pushErr.message);
+          }
+        }
+      }
+
+      // 📧 3. Send traditional email update to customer
       if (order.user && order.user.email) {
         sendEmail({
           to: order.user.email,

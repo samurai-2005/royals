@@ -11,6 +11,9 @@ const {
   updateUserProfile,
   savePushSubscription,
   getUsers,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead
 } = require('../controllers/userController');
 
 // Registration, Login & Admin Directory Routes
@@ -27,6 +30,11 @@ router.post('/verify-otp', verifyOtp);
 
 // PWA Push Subscription Route
 router.post('/subscribe-push', savePushSubscription);
+
+// Live Notification Routes
+router.route('/notifications').get(protect, getNotifications);
+router.route('/notifications/read-all').put(protect, markAllNotificationsRead);
+router.route('/notifications/:id/read').put(protect, markNotificationRead);
 
 // Protected Profile Route
 router

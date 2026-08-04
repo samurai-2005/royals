@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   FiSearch, 
@@ -19,60 +19,46 @@ import { useCart } from '../../context/CartContext';
 const Navbar = ({ toggleSidebar }) => {
   const [keyword, setKeyword] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [expiredBanner, setExpiredBanner] = useState(null); // Holds message for expired sale clicks
+  const [expiredBanner, setExpiredBanner] = useState(null);
+  const [notifications, setNotifications] = useState([]); // Array bound to MongoDB
   const dropdownRef = useRef(null);
 
   const navigate = useNavigate();
-  useLocation(); // Subscribes to route changes
+  useLocation(); 
   const { cartCount } = useCart();
 
-  // Notification History Sample State (In production, fetched from backend/localStorage)
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      type: 'order',
-      title: 'Order Dispatched! 🚚',
-      message: 'Your school uniform order #RT-8492 is out for delivery via Shiprocket.',
-      time: '10m ago',
-      read: false,
-      targetUrl: '/orders', // 👈 Redirects directly to Orders.jsx
-      isExpired: false
-    },
-    {
-      id: '2',
-      type: 'sale',
-      title: 'Grand Independence Day Uniform Mega Sale 🔥',
-      message: 'Exclusive site-wide sale event on all school & security guard uniforms.',
-      time: '2h ago',
-      read: false,
-      targetUrl: '/deals', // 👈 Redirects to Deals event page
-      isExpired: false
-    },
-    {
-      id: '3',
-      type: 'sale',
-      title: 'Monsoon Clearance Sale Event (50% OFF)',
-      message: 'Special clearance event on Security Guard caps and badges.',
-      time: '2d ago',
-      read: true,
-      targetUrl: '/deals',
-      isExpired: true // Expired Sale Event
-    }
-  ]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  // Derived user state directly from localStorage
-  const getUser = () => {
+  const getUser = useCallback(() => {
     try {
       const userInfoString = localStorage.getItem('userInfo');
       return userInfoString ? JSON.parse(userInfoString) : null;
     } catch {
       return null;
     }
-  };
+  }, []);
 
   const user = getUser();
+  const userToken = user?.token; // Extract token as a primitive string
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // 🔔 Fetch Live Notifications from Database
+  useEffect(() => {
+    if (userToken) {
+      const fetchNotifications = async () => {
+        try {
+          const config = { headers: { Authorization: `Bearer ${userToken}` } };
+          const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/notifications`, config);
+          setNotifications(data || []);
+        } catch (err) {
+          console.error("Failed to fetch notifications", err);
+        }
+      };
+
+      fetchNotifications();
+      // Poll every 30 seconds for live updates
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userToken]); // <-- Perfectly clean dependency array
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
@@ -81,7 +67,22 @@ const Navbar = ({ toggleSidebar }) => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Close dropdown when clicking outside
+  // Helper: Format Database timestamp to "10m ago"
+  const formatTimeAgo = (dateString) => {
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + "y ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + "mo ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + "d ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "m ago";
+    return "Just now";
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -100,34 +101,46 @@ const Navbar = ({ toggleSidebar }) => {
     }
   };
 
-  // Handle clicking on an individual notification item
-  const handleNotificationClick = (notif) => {
+  // Mark single notification read
+  const handleNotificationClick = async (notif) => {
     setExpiredBanner(null);
 
-    // Mark notification as read
-    setNotifications(prev =>
-      prev.map(n => n.id === notif.id ? { ...n, read: true } : n)
-    );
+    // Optimistic UI Update
+    setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, read: true } : n));
 
-    // If it's an EXPIRED sale event notification, DO NOT REDIRECT
+    // Update DB securely
+    if (userToken) {
+      try {
+        const config = { headers: { Authorization: `Bearer ${userToken}` } };
+        await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/users/notifications/${notif._id}/read`, {}, config);
+      } catch (err) {
+        console.error('Failed to mark read', err);
+      }
+    }
+
     if (notif.type === 'sale' && notif.isExpired) {
       setExpiredBanner(`⚠️ The sale event "${notif.title}" has expired!`);
       return;
     }
 
-    // Redirect to target URL (/orders for order updates, /deals for active sale events)
     if (notif.targetUrl) {
       setShowNotifications(false);
       navigate(notif.targetUrl);
     }
   };
 
-  // Mark all notifications as read
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  // Mark all read
+  const handleMarkAllRead = async () => {
+    if (!userToken) return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${userToken}` } };
+      await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/users/notifications/read-all`, {}, config);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  // Enable Push Permission directly from panel
   const handleEnablePushPermissions = async () => {
     if (!('Notification' in window)) return;
     try {
@@ -142,9 +155,7 @@ const Navbar = ({ toggleSidebar }) => {
             applicationServerKey: publicVapidKey
           });
 
-          const userInfo = getUser();
-          const config = userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : {};
-
+          const config = userToken ? { headers: { Authorization: `Bearer ${userToken}` } } : {};
           await axios.post(
             `${import.meta.env.VITE_BACKEND_URL}/api/users/subscribe-push`,
             { subscription },
@@ -161,9 +172,7 @@ const Navbar = ({ toggleSidebar }) => {
     <header className="bg-[#0f0f0f] border-b border-zinc-800 sticky top-0 z-40 px-4 py-3 w-full">
       <div className="max-w-7xl mx-auto flex flex-col gap-3">
         
-        {/* TOP ROW: Brand Name & Action Icons */}
         <div className="flex items-center justify-between">
-          
           <div className="flex items-center gap-3">
             <button 
               onClick={toggleSidebar} 
@@ -178,7 +187,6 @@ const Navbar = ({ toggleSidebar }) => {
             </Link>
           </div>
 
-          {/* Desktop Search Bar */}
           <form onSubmit={handleSearch} className="hidden md:block w-full max-w-md relative mx-4">
             <input
               type="text"
@@ -190,10 +198,8 @@ const Navbar = ({ toggleSidebar }) => {
             <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           </form>
 
-          {/* Actions: Floating Notification Bell + Cart + User Profile Avatar */}
           <div className="flex items-center gap-4 relative" ref={dropdownRef}>
             
-            {/* 🔔 FLOATING NOTIFICATION BUTTON */}
             <button 
               type="button"
               onClick={() => {
@@ -202,7 +208,6 @@ const Navbar = ({ toggleSidebar }) => {
               }}
               className="relative text-zinc-300 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-zinc-900 cursor-pointer" 
               aria-label="Notifications"
-              title="Royal Notifications"
             >
               <FiBell size={20} />
               {unreadCount > 0 && (
@@ -210,11 +215,9 @@ const Navbar = ({ toggleSidebar }) => {
               )}
             </button>
 
-            {/* 📦 FLOATING NOTIFICATION INBOX PANEL */}
             {showNotifications && (
               <div className="absolute right-0 top-12 w-80 sm:w-96 bg-[#18181b] border border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden text-left animate-fade-in backdrop-blur-xl">
                 
-                {/* Panel Header */}
                 <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60">
                   <div className="flex items-center space-x-2">
                     <h3 className="text-xs font-black text-white uppercase tracking-wider">Royal Notifications</h3>
@@ -235,7 +238,6 @@ const Navbar = ({ toggleSidebar }) => {
                   )}
                 </div>
 
-                {/* Banner when tapping an EXPIRED Sale Notification */}
                 {expiredBanner && (
                   <div className="bg-amber-950/80 border-b border-amber-800/80 px-4 py-2.5 text-[11px] font-bold text-amber-300 flex items-center gap-2 animate-shake">
                     <FiAlertCircle size={14} className="flex-shrink-0 text-amber-400" />
@@ -243,7 +245,6 @@ const Navbar = ({ toggleSidebar }) => {
                   </div>
                 )}
 
-                {/* Notification Items Scrollable List */}
                 <div className="max-h-80 overflow-y-auto divide-y divide-zinc-800/60 scrollbar-hide">
                   {notifications.length === 0 ? (
                     <div className="p-8 text-center text-zinc-500 text-xs">
@@ -252,18 +253,16 @@ const Navbar = ({ toggleSidebar }) => {
                   ) : (
                     notifications.map((notif) => (
                       <div
-                        key={notif.id}
+                        key={notif._id}
                         onClick={() => handleNotificationClick(notif)}
                         className={`p-3.5 transition-colors cursor-pointer flex items-start space-x-3 group relative ${
                           !notif.read ? 'bg-zinc-900/80 hover:bg-zinc-900' : 'hover:bg-zinc-900/40 opacity-75'
                         }`}
                       >
-                        {/* Unread Left Indicator Strip */}
                         {!notif.read && (
                           <div className="absolute left-0 top-3 bottom-3 w-1 bg-amber-500 rounded-r" />
                         )}
 
-                        {/* Category Icon */}
                         <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${
                           notif.type === 'order' 
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
@@ -272,20 +271,20 @@ const Navbar = ({ toggleSidebar }) => {
                           {notif.type === 'order' ? <FiPackage size={16} /> : <FiTag size={16} />}
                         </div>
 
-                        {/* Text Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <h4 className="text-xs font-bold text-white truncate group-hover:text-amber-400 transition-colors">
                               {notif.title}
                             </h4>
-                            <span className="text-[10px] text-zinc-500 flex-shrink-0">{notif.time}</span>
+                            <span className="text-[10px] text-zinc-500 flex-shrink-0">
+                              {formatTimeAgo(notif.createdAt)}
+                            </span>
                           </div>
 
                           <p className="text-[11px] text-zinc-400 leading-snug mt-1 line-clamp-2">
                             {notif.message}
                           </p>
 
-                          {/* Status Tag for Expired Sales */}
                           {notif.isExpired && (
                             <span className="inline-block mt-1.5 text-[9px] font-black uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-800/80 px-2 py-0.5 rounded">
                               Sale Expired
@@ -299,7 +298,6 @@ const Navbar = ({ toggleSidebar }) => {
                   )}
                 </div>
 
-                {/* Footer Push Enable Action */}
                 {'Notification' in window && Notification.permission === 'default' && (
                   <div className="p-3 bg-zinc-900 border-t border-zinc-800 text-center">
                     <button
@@ -314,7 +312,6 @@ const Navbar = ({ toggleSidebar }) => {
               </div>
             )}
 
-            {/* Shopping Cart Button */}
             <Link to="/cart" className="relative text-zinc-300 hover:text-white transition-colors p-1">
               <FiShoppingBag size={20} />
               {cartCount > 0 && (
@@ -324,7 +321,6 @@ const Navbar = ({ toggleSidebar }) => {
               )}
             </Link>
 
-            {/* Desktop User Avatar / Account Badge */}
             <Link 
               to={user ? "/user-profile" : "/login"} 
               className="hidden md:flex items-center gap-2.5 text-zinc-300 hover:text-white text-xs font-bold transition-colors bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-full"
@@ -347,7 +343,6 @@ const Navbar = ({ toggleSidebar }) => {
           </div>
         </div>
 
-        {/* MOBILE SEARCH BAR */}
         <div className="block md:hidden w-full">
           <form onSubmit={handleSearch} className="relative w-full">
             <input
