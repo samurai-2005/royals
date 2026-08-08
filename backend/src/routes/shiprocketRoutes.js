@@ -1,5 +1,6 @@
 const express = require('express');
-const router = express.Router(); // Fixed: changed from express.express.Router()
+const router = express.Router();
+const { protect, admin } = require('../middlewares/authMiddleware');
 const { 
   checkServiceability, 
   createShiprocketOrder, 
@@ -8,15 +9,15 @@ const {
   shiprocketWebhook
 } = require('../controllers/shiprocketController');
 
-// Open route for frontend Pincode checking
+// Public route for Pincode serviceability checks on frontend
 router.post('/serviceability', checkServiceability);
 
-// Logistics Operations
-router.post('/create-order', createShiprocketOrder);
-router.post('/generate-awb', generateAWB);
-router.post('/generate-label', generateLabel);
+// Authenticated / Admin Logistics Operations
+router.post('/create-order', protect, createShiprocketOrder);
+router.post('/generate-awb', protect, admin, generateAWB);
+router.post('/generate-label', protect, admin, generateLabel);
 
-// Webhook listener for Shiprocket servers
+// Webhook listener for automatic tracking status updates from Shiprocket
 router.post('/webhook', shiprocketWebhook);
 
 module.exports = router;

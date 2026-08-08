@@ -37,7 +37,9 @@ app.use('/api/products', productRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/shiprocket', shiprocketRoutes);
+
+// 🚀 FIXED: Changed to '/api/logistics' to bypass Shiprocket webhook keyword blocks
+app.use('/api/logistics', shiprocketRoutes);
 
 // Make the uploads folder statically accessible
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

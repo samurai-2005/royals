@@ -1,175 +1,236 @@
 const axios = require('axios');
+const Order = require('../models/Order');
 
-// ============================================================================
-// SHIPROCKET PLACEHOLDER UTILITY
-// This automatically logs in to Shiprocket if credentials exist in .env.
-// Otherwise, it returns a dummy token for local testing.
-// ============================================================================
+// In-memory token cache to prevent authentication throttling
+let cachedToken = null;
+let tokenExpiry = null;
+
+// Helper: Authenticate with Live Shiprocket API
 const getShiprocketToken = async () => {
-  if (!process.env.SHIPROCKET_EMAIL || process.env.SHIPROCKET_EMAIL.includes('example.com')) {
-    console.log('[PLACEHOLDER] Generating Mock Shiprocket Token');
-    return 'mock_development_token_123';
+  // Reuse cached token if valid (Tokens last 10 days; refresh after 9 days)
+  if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
+    return cachedToken;
   }
 
   try {
     const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
       email: process.env.SHIPROCKET_EMAIL,
-      password: process.env.SHIPROCKET_PASSWORD
+      password: process.env.SHIPROCKET_PASSWORD,
     });
-    return data.token;
+
+    cachedToken = data.token;
+    tokenExpiry = Date.now() + 9 * 24 * 60 * 60 * 1000; 
+    console.log('✅ Shiprocket Authenticated Successfully');
+    return cachedToken;
   } catch (error) {
-    console.error('Shiprocket Auth Failed:', error.response?.data || error.message);
-    throw new Error('Logistics authentication failed');
+    console.error('Shiprocket Auth Error:', error.response?.data || error.message);
+    throw new Error('Logistics authentication failed. Check credentials in .env');
   }
 };
 
-// 1. DYNAMIC SHIPPING RATES (Serviceability & Pincode Check)
+// 1. DYNAMIC SHIPPING RATES & PINCODE CHECK
 const checkServiceability = async (req, res) => {
-  const { delivery_postcode, weight = 1, cod = 0 } = req.body;
-  
+  const { delivery_postcode, weight = 0.5, cod = 1 } = req.body;
+
+  if (!delivery_postcode) {
+    return res.status(400).json({ success: false, message: 'Delivery pincode is required.' });
+  }
+
   try {
     const token = await getShiprocketToken();
-    
-    // @todo SHIPROCKET_PLACEHOLDER: Remove this IF block when account is live
-    if (token === 'mock_development_token_123') {
-      return res.json({
-        success: true,
-        data: {
-          available_courier_companies: [{
-            courier_name: "Mock Delivery (Delhivery)",
-            estimated_delivery_days: 3,
-            rate: 150
-          }]
-        }
-      });
-    }
 
-    // LIVE API CALL
-    const { data } = await axios.get(`https://apiv2.shiprocket.in/v1/external/courier/serviceability`, {
+    const { data } = await axios.get('https://apiv2.shiprocket.in/v1/external/courier/serviceability', {
       headers: { Authorization: `Bearer ${token}` },
       params: {
-        pickup_postcode: 800001, // Patna PIN as default origin
+        pickup_postcode: 801503, // Danapur Cantt, Patna Warehouse PIN
         delivery_postcode,
         weight,
-        cod
+        cod: cod ? 1 : 0
       }
     });
+
     res.json({ success: true, data: data.data });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Serviceability Check Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: error.response?.data?.message || 'Failed to check shipping serviceability.' 
+    });
   }
 };
 
-// 2. AUTOMATED ORDER CREATION
+// 2. AUTOMATED LIVE ORDER CREATION
 const createShiprocketOrder = async (req, res) => {
-  const { orderId, orderItems, shippingAddress, totalPrice, user } = req.body;
+  const { orderId, orderItems, shippingAddress, totalPrice, user, paymentMethod } = req.body;
 
   try {
     const token = await getShiprocketToken();
 
-    // @todo SHIPROCKET_PLACEHOLDER: Remove this IF block when account is live
-    if (token === 'mock_development_token_123') {
-      return res.json({
-        success: true,
-        shiprocket_order_id: `mock_sr_${Date.now()}`,
-        message: "Mock Order created successfully in Shiprocket"
+    const fullName = user?.name || shippingAddress?.name || 'Valued Customer';
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || 'Customer';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const payload = {
+      order_id: String(orderId).substring(0, 20),
+      order_date: new Date().toISOString().split('T')[0],
+      pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION_ID || 'warehouse',
+      billing_customer_name: firstName,
+      billing_last_name: lastName,
+      billing_address: shippingAddress?.address || '',
+      billing_city: shippingAddress?.city || 'Patna',
+      billing_pincode: shippingAddress?.postalCode || '',
+      billing_state: shippingAddress?.state || 'Bihar',
+      billing_country: shippingAddress?.country || 'India',
+      billing_email: user?.email || 'customer@royaltailors.net',
+      billing_phone: shippingAddress?.phone || user?.phone || '9999999999',
+      shipping_is_billing: true,
+      order_items: (orderItems || []).map((item) => ({
+        name: item.name,
+        sku: String(item.product || item._id).substring(0, 10),
+        units: item.qty || 1,
+        selling_price: item.price
+      })),
+      payment_method: paymentMethod === 'COD' ? 'COD' : 'Prepaid',
+      sub_total: totalPrice,
+      length: 10,
+      breadth: 10,
+      height: 5,
+      weight: 0.5
+    };
+
+    const { data } = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Save Shiprocket IDs to MongoDB Order if order ID exists
+    if (orderId && data.order_id) {
+      await Order.findByIdAndUpdate(orderId, {
+        shiprocketOrderId: data.order_id,
+        shipmentId: data.shipment_id
       });
     }
 
-    // Format your Mongoose order into Shiprocket's required JSON payload
-    const payload = {
-      order_id: orderId,
-      order_date: new Date().toISOString(),
-      pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION_ID,
-      billing_customer_name: user?.name || shippingAddress.name,
-      billing_last_name: "",
-      billing_address: shippingAddress.address,
-      billing_city: shippingAddress.city,
-      billing_pincode: shippingAddress.postalCode,
-      billing_state: shippingAddress.state,
-      billing_country: "India",
-      billing_email: user?.email || "customer@example.com",
-      billing_phone: shippingAddress.phone || "9999999999",
-      shipping_is_billing: true,
-      order_items: orderItems.map(item => ({
-        name: item.name,
-        sku: item.product, 
-        units: item.qty,
-        selling_price: item.price
-      })),
-      payment_method: "Prepaid",
-      sub_total: totalPrice,
-      length: 10, breadth: 10, height: 10, weight: 1 // Default parcel dimensions
-    };
-
-    // LIVE API CALL
-    const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', payload, {
-      headers: { Authorization: `Bearer ${token}` }
+    res.json({
+      success: true,
+      shiprocket_order_id: data.order_id,
+      shipment_id: data.shipment_id,
+      data
     });
-    
-    res.json({ success: true, shiprocket_order_id: data.order_id, message: "Order pushed to logistics." });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Shiprocket Create Order Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create order in Shiprocket.',
+      details: error.response?.data 
+    });
   }
 };
 
 // 3. AUTOMATED COURIER ASSIGNMENT (Generate AWB)
 const generateAWB = async (req, res) => {
-  const { shiprocket_order_id } = req.body;
+  const { shipment_id, courier_id } = req.body;
+
+  if (!shipment_id) {
+    return res.status(400).json({ success: false, message: 'shipment_id is required.' });
+  }
 
   try {
     const token = await getShiprocketToken();
 
-    // @todo SHIPROCKET_PLACEHOLDER
-    if (token === 'mock_development_token_123') {
-      return res.json({ success: true, awb_code: `MOCK_AWB_${Math.floor(Math.random() * 100000)}` });
-    }
+    const payload = { shipment_id };
+    if (courier_id) payload.courier_id = courier_id;
 
-    // LIVE API CALL
-    const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/courier/assign/awb', 
-      { shipment_id: shiprocket_order_id },
+    const { data } = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/courier/assign/awb',
+      payload,
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    res.json({ success: true, awb_code: data.response.data.awb_code });
+
+    res.json({ 
+      success: true, 
+      response: data.response?.data || data 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Shiprocket AWB Generation Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to generate AWB code.',
+      details: error.response?.data 
+    });
   }
 };
 
 // 4. LABEL GENERATION
 const generateLabel = async (req, res) => {
-  const { shiprocket_shipment_ids } = req.body; // Array of IDs
+  const { shipment_id } = req.body;
+
+  if (!shipment_id) {
+    return res.status(400).json({ success: false, message: 'shipment_id is required.' });
+  }
 
   try {
     const token = await getShiprocketToken();
+    const shipmentIds = Array.isArray(shipment_id) ? shipment_id : [shipment_id];
 
-    // @todo SHIPROCKET_PLACEHOLDER
-    if (token === 'mock_development_token_123') {
-      return res.json({ success: true, label_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" });
-    }
-
-    // LIVE API CALL
-    const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/courier/generate/label', 
-      { shipment_id: shiprocket_shipment_ids },
+    const { data } = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/courier/generate/label',
+      { shipment_id: shipmentIds },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    res.json({ success: true, label_url: data.label_url });
+
+    res.json({ 
+      success: true, 
+      label_url: data.label_url,
+      data 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Shiprocket Label Generation Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to generate shipping label.',
+      details: error.response?.data 
+    });
   }
 };
 
-// 5 & 6. WEBHOOK FOR REAL-TIME TRACKING & NDR
+// 5. WEBHOOK FOR REAL-TIME TRACKING & NDR
 const shiprocketWebhook = async (req, res) => {
-  // Shiprocket hits this endpoint automatically when a package moves.
-  const trackingData = req.body;
-  
-  console.log("Webhook Received from Logistics:", trackingData.current_status);
-  
-  // @todo SHIPROCKET_PLACEHOLDER: Update MongoDB order status based on trackingData.current_status
-  // e.g., if (trackingData.current_status === 'DELIVERED') { await Order.findByIdAndUpdate(...) }
+  try {
+    const trackingData = req.body;
+    console.log('📦 Shiprocket Webhook Received:', trackingData);
 
-  res.status(200).send('Webhook Received');
+    const { order_id, current_status, awb } = trackingData;
+
+    if (order_id) {
+      const updateFields = {};
+      if (current_status) updateFields.status = current_status;
+      if (awb) updateFields.awbCode = awb;
+
+      if (current_status === 'DELIVERED' || current_status === 'Delivered') {
+        updateFields.isDelivered = true;
+        updateFields.deliveredAt = Date.now();
+      }
+
+      await Order.findOneAndUpdate(
+        { $or: [{ _id: order_id }, { shiprocketOrderId: order_id }] },
+        { $set: updateFields }
+      );
+    }
+
+    res.status(200).send('Webhook Received');
+  } catch (error) {
+    console.error('Webhook Processing Error:', error.message);
+    res.status(500).send('Webhook Error');
+  }
 };
 
-module.exports = { checkServiceability, createShiprocketOrder, generateAWB, generateLabel, shiprocketWebhook };
+module.exports = { 
+  checkServiceability, 
+  createShiprocketOrder, 
+  generateAWB, 
+  generateLabel, 
+  shiprocketWebhook 
+};
