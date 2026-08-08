@@ -21,6 +21,16 @@ const addOrderItems = async (req, res) => {
       totalPrice,
     } = req.body;
 
+    // 🔒 1. MANDATORY PHONE VERIFICATION GUARD
+    const user = await User.findById(req.user._id);
+
+    if (!user || !user.isPhoneVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number verification required. Please verify your phone number with an OTP before placing an order.',
+      });
+    }
+
     if (!orderItems || orderItems.length === 0) {
       res.status(400).json({ message: 'No order items provided.' });
       return;
@@ -44,7 +54,10 @@ const addOrderItems = async (req, res) => {
     const order = new Order({
       user: req.user._id, 
       orderItems,
-      shippingAddress,
+      shippingAddress: {
+        ...shippingAddress,
+        phone: user.phone || shippingAddress.phone // Attaches verified mobile number
+      },
       paymentMethod,
       itemsPrice,
       shippingPrice,
@@ -116,7 +129,6 @@ const updateOrderStatus = async (req, res) => {
 
       const updatedOrder = await order.save();
 
-      // 🔔 1. Save In-App Notification to User Database
       const userToNotify = await User.findById(order.user._id);
       if (userToNotify) {
         const notificationPayload = {
@@ -129,10 +141,8 @@ const updateOrderStatus = async (req, res) => {
         userToNotify.notifications.unshift(notificationPayload);
         await userToNotify.save();
 
-        // 📱 2. Trigger PWA Web Push to Phone (If user subscribed)
         if (userToNotify.pushSubscription && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
           try {
-            // Configure VAPID right before sending to guarantee env vars are loaded
             webpush.setVapidDetails(
               'mailto:support@royaltailors.net', 
               process.env.VAPID_PUBLIC_KEY,
@@ -149,14 +159,11 @@ const updateOrderStatus = async (req, res) => {
             );
             console.log('✅ Web Push Sent Successfully to device.');
           } catch (pushErr) {
-            console.warn('⚠️ Web Push Failed (User might have revoked permission or token expired):', pushErr.message);
+            console.warn('⚠️ Web Push Failed:', pushErr.message);
           }
-        } else {
-          console.warn('⚠️ Push skipped: User has no active subscription or VAPID keys are missing from .env');
         }
       }
 
-      // 📧 3. Send traditional email update to customer
       if (order.user && order.user.email) {
         sendEmail({
           to: order.user.email,

@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
-import { FiLock, FiMapPin, FiTruck, FiCheckCircle, FiAlertCircle, FiPhone } from 'react-icons/fi';
+import { 
+  FiLock, 
+  FiMapPin, 
+  FiTruck, 
+  FiCheckCircle, 
+  FiAlertCircle, 
+  FiPhone, 
+  FiShield 
+} from 'react-icons/fi';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -13,23 +21,55 @@ const Checkout = () => {
     city: 'Patna',
     postalCode: '801503',
     state: 'Bihar',
-    phone: '9876543210' // 👈 Default 10-digit mobile number
+    phone: ''
   });
 
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Phone Verification States
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMessage, setOtpMessage] = useState('');
+
   // Pincode Serviceability States
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [serviceability, setServiceability] = useState(null);
   const [pincodeError, setPincodeError] = useState('');
 
-  // Free shipping on orders ₹300 and above
+  // Free shipping threshold (Rs 300)
   const FREE_SHIPPING_THRESHOLD = 300;
   const BASE_SHIPPING_FEE = 60;
   const shippingFee = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : BASE_SHIPPING_FEE;
   const grandTotal = cartTotal + shippingFee;
+
+  // Fetch User Verification Profile on Mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      if (!userInfo || !userInfo.token) return;
+
+      try {
+        const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users/profile`, config);
+
+        if (data) {
+          setIsPhoneVerified(Boolean(data.isPhoneVerified));
+          setShippingAddress(prev => ({
+            ...prev,
+            phone: data.phone || prev.phone
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load user verification status:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const handleChange = (e) => {
     setShippingAddress({ ...shippingAddress, [e.target.name]: e.target.value });
@@ -48,6 +88,69 @@ const Checkout = () => {
       return item.price - (item.price * item.discountPercentage) / 100;
     }
     return item.price;
+  };
+
+  // 📲 Trigger Mobile OTP
+  const handleSendOTP = async () => {
+    const cleanPhone = shippingAddress.phone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      setOtpMessage('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpMessage('');
+
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/send-otp`, {
+        phone: cleanPhone
+      }, config);
+
+      setOtpSent(true);
+      setOtpMessage('✅ OTP sent successfully to your mobile number!');
+    } catch (err) {
+      setOtpMessage(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // 🔐 Verify OTP Code
+  const handleVerifyOTP = async () => {
+    if (!otpCode || otpCode.length < 4) {
+      setOtpMessage('Please enter a valid OTP code.');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpMessage('');
+
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+
+      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/users/verify-otp`, {
+        phone: shippingAddress.phone.replace(/\D/g, ''),
+        otp: otpCode
+      }, config);
+
+      if (data.success || data.isPhoneVerified) {
+        setIsPhoneVerified(true);
+        setOtpMessage('✅ Phone number verified successfully!');
+        
+        if (userInfo) {
+          userInfo.isPhoneVerified = true;
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        }
+      }
+    } catch (err) {
+      setOtpMessage(err.response?.data?.message || 'Invalid OTP code. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
   };
 
   const handleCheckPincode = async () => {
@@ -88,6 +191,12 @@ const Checkout = () => {
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
+
+    if (!isPhoneVerified) {
+      setError('Mobile number verification is required before placing an order.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -129,7 +238,6 @@ const Checkout = () => {
         config
       );
 
-      // Background Shiprocket Sync
       try {
         await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/create-order`, {
           orderId: data._id,
@@ -185,111 +293,162 @@ const Checkout = () => {
       )}
 
       {error && (
-        <div className="bg-red-900/30 border border-red-800 text-red-400 p-4 rounded-lg mb-6 font-semibold">
-          {error}
+        <div className="bg-red-900/30 border border-red-800 text-red-400 p-4 rounded-lg mb-6 font-semibold flex items-center gap-2">
+          <FiAlertCircle size={18} /> {error}
         </div>
       )}
 
       <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* SHIPPING FORM */}
+        {/* SHIPPING FORM & OTP CARD */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-xl shadow-lg">
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              <FiMapPin className="mr-2"/> Delivery Address
+          <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-xl shadow-lg space-y-4">
+            <h2 className="text-xl font-bold flex items-center justify-between">
+              <span className="flex items-center gap-2"><FiMapPin /> Delivery Address</span>
+              {isPhoneVerified ? (
+                <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                  <FiCheckCircle /> Verified Mobile
+                </span>
+              ) : (
+                <span className="bg-amber-950 text-amber-400 border border-amber-800 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                  <FiShield /> Mobile Unverified
+                </span>
+              )}
             </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Street Address</label>
-                <input 
-                  type="text" 
-                  name="address" 
-                  required 
-                  value={shippingAddress.address} 
-                  onChange={handleChange} 
-                  className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
-                />
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 flex items-center gap-1">
-                  <FiPhone /> Contact Mobile Number (For Delivery Agent)
-                </label>
+            <div>
+              <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Street Address</label>
+              <input 
+                type="text" 
+                name="address" 
+                required 
+                value={shippingAddress.address} 
+                onChange={handleChange} 
+                className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+
+            {/* MANDATORY PHONE VERIFICATION CARD */}
+            <div className="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl space-y-3">
+              <label className="block text-xs font-bold text-zinc-400 uppercase flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><FiPhone className="text-amber-400" /> Mobile Number (Required for Order & Courier Updates)</span>
+                {isPhoneVerified && <span className="text-emerald-400 text-xs font-bold">✓ Verified</span>}
+              </label>
+
+              <div className="flex gap-2">
                 <input 
                   type="tel" 
                   name="phone" 
                   required 
                   maxLength={10}
-                  placeholder="10-digit mobile number"
+                  disabled={isPhoneVerified}
+                  placeholder="Enter 10-digit Indian Mobile Number"
                   value={shippingAddress.phone} 
+                  onChange={handleChange} 
+                  className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500 disabled:opacity-60"
+                />
+
+                {!isPhoneVerified && (
+                  <button
+                    type="button"
+                    onClick={handleSendOTP}
+                    disabled={otpLoading || !shippingAddress.phone}
+                    className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-4 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
+                  >
+                    {otpLoading ? 'Sending...' : (otpSent ? 'Resend OTP' : 'Send OTP')}
+                  </button>
+                )}
+              </div>
+
+              {!isPhoneVerified && otpSent && (
+                <div className="flex gap-2 pt-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter OTP Code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    className="w-full bg-[#0f0f0f] border border-amber-500/80 rounded px-4 py-2.5 text-white text-xs focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOTP}
+                    disabled={otpLoading || !otpCode}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
+                  >
+                    {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                  </button>
+                </div>
+              )}
+
+              {otpMessage && (
+                <p className={`text-xs font-bold mt-1 ${otpMessage.includes('✅') ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {otpMessage}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">City</label>
+                <input 
+                  type="text" 
+                  name="city" 
+                  required 
+                  value={shippingAddress.city} 
                   onChange={handleChange} 
                   className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">City</label>
+              
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">PIN Code</label>
+                <div className="flex gap-2">
                   <input 
                     type="text" 
-                    name="city" 
+                    name="postalCode" 
                     required 
-                    value={shippingAddress.city} 
+                    value={shippingAddress.postalCode} 
                     onChange={handleChange} 
                     className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
                   />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">PIN Code</label>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      name="postalCode" 
-                      required 
-                      value={shippingAddress.postalCode} 
-                      onChange={handleChange} 
-                      className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCheckPincode}
-                      disabled={checkingPincode}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-xs text-amber-400 font-bold px-3 rounded-lg border border-zinc-700 transition-colors flex-shrink-0"
-                    >
-                      {checkingPincode ? 'Checking...' : 'Verify'}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckPincode}
+                    disabled={checkingPincode}
+                    className="bg-zinc-800 hover:bg-zinc-700 text-xs text-amber-400 font-bold px-3 rounded-lg border border-zinc-700 transition-colors flex-shrink-0"
+                  >
+                    {checkingPincode ? 'Checking...' : 'Verify'}
+                  </button>
                 </div>
               </div>
+            </div>
 
-              {serviceability && (
-                <div className="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-400 text-xs flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-semibold">
-                    <FiCheckCircle /> Serviceable by {serviceability.courier}
-                  </span>
-                  <span className="text-zinc-300">Est. Delivery: <strong>{serviceability.etd}</strong></span>
-                </div>
-              )}
-
-              {pincodeError && (
-                <div className="bg-red-950/40 border border-red-800/60 p-3 rounded-lg text-red-400 text-xs flex items-center gap-1.5">
-                  <FiAlertCircle /> {pincodeError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">State</label>
-                <input 
-                  type="text" 
-                  name="state" 
-                  required 
-                  value={shippingAddress.state} 
-                  onChange={handleChange} 
-                  className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
-                />
+            {serviceability && (
+              <div className="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-400 text-xs flex items-center justify-between">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <FiCheckCircle /> Serviceable by {serviceability.courier}
+                </span>
+                <span className="text-zinc-300">Est. Delivery: <strong>{serviceability.etd}</strong></span>
               </div>
+            )}
+
+            {pincodeError && (
+              <div className="bg-red-950/40 border border-red-800/60 p-3 rounded-lg text-red-400 text-xs flex items-center gap-1.5">
+                <FiAlertCircle /> {pincodeError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">State</label>
+              <input 
+                type="text" 
+                name="state" 
+                required 
+                value={shippingAddress.state} 
+                onChange={handleChange} 
+                className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
+              />
             </div>
           </div>
 
@@ -383,10 +542,10 @@ const Checkout = () => {
 
           <button 
             type="submit" 
-            disabled={loading}
+            disabled={loading || !isPhoneVerified}
             className="w-full bg-white text-black font-black py-4 rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50 text-lg shadow-lg"
           >
-            {loading ? 'Placing Order...' : 'Confirm Order'}
+            {loading ? 'Placing Order...' : (isPhoneVerified ? 'Confirm Order' : 'Verify Mobile to Order')}
           </button>
         </div>
 
