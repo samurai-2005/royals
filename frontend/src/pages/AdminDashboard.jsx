@@ -19,7 +19,9 @@ import {
   FiX, 
   FiTrendingUp, 
   FiCheck,
-  FiUpload
+  FiUpload,
+  FiSend,
+  FiSearch
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -36,6 +38,10 @@ const AdminDashboard = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
 
+  // Action Loading & Modal States
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [trackingModalData, setTrackingModalData] = useState(null);
+
   // Product Modal Form State
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -44,7 +50,7 @@ const AdminDashboard = () => {
   const [prodDesc, setProdDesc] = useState('');
   const [prodMainGroup, setProdMainGroup] = useState('School Uniforms');
   const [prodSubGroup, setProdSubGroup] = useState('Unassigned');
-  const [prodImages, setProdImages] = useState([]); // Array of picture URLs
+  const [prodImages, setProdImages] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
 
@@ -57,7 +63,7 @@ const AdminDashboard = () => {
     setSearchParams({ tab: tabId });
   };
 
-  // Helper: Format full Image URL for local uploads or Cloudinary
+  // Helper: Format full Image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
@@ -72,7 +78,7 @@ const AdminDashboard = () => {
     return userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : null;
   }, []);
 
-  // Fetch Dashboard Data (Orders, Products, & Registered Users)
+  // Fetch Dashboard Data
   const fetchDashboardData = useCallback(async () => {
     const config = getAuthHeader();
     if (!config) return;
@@ -89,7 +95,6 @@ const AdminDashboard = () => {
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
       setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
 
-      // Fetch users list from backend database
       try {
         const usersRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, config);
         if (Array.isArray(usersRes.data)) {
@@ -111,7 +116,7 @@ const AdminDashboard = () => {
     }
   }, [getAuthHeader]);
 
-  // Server Admin Authorization Handshake
+  // Verify Admin Handshake
   useEffect(() => {
     const verifyAdmin = async () => {
       const config = getAuthHeader();
@@ -140,7 +145,119 @@ const AdminDashboard = () => {
     verifyAdmin();
   }, [navigate, getAuthHeader, fetchDashboardData]);
 
-  // 💰 FINANCE: MARK PAYMENT RECEIVED HANDLER
+  // 🚀 LOGISTICS: MANUAL PUSH TO SHIPROCKET
+  const handlePushToShiprocket = async (order) => {
+    const config = getAuthHeader();
+    if (!config) return;
+
+    setActionLoadingId(`push-${order._id}`);
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/logistics/create-order`,
+        {
+          orderId: order._id,
+          orderItems: order.orderItems,
+          shippingAddress: order.shippingAddress,
+          totalPrice: order.totalPrice || order.itemsPrice,
+          user: order.user,
+          paymentMethod: order.paymentMethod
+        },
+        config
+      );
+
+      alert(`✅ Successfully pushed to Shiprocket! Order ID: ${data.shiprocket_order_id}`);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to push order to Shiprocket.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // 🚀 LOGISTICS: GENERATE AWB (ASSIGN COURIER)
+  const handleGenerateAWB = async (shipmentId) => {
+    if (!shipmentId) {
+      alert('Order must be pushed to Shiprocket first.');
+      return;
+    }
+
+    const config = getAuthHeader();
+    if (!config) return;
+
+    setActionLoadingId(`awb-${shipmentId}`);
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/logistics/generate-awb`,
+        { shipment_id: shipmentId },
+        config
+      );
+
+      const awb = data.response?.awb_code || data.response?.data?.awb_code || 'Assigned';
+      alert(`✅ Courier AWB Code Generated: ${awb}`);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate AWB code.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // 🚀 LOGISTICS: GENERATE & PRINT SHIPPING LABEL
+  const handleGenerateLabel = async (shipmentId) => {
+    if (!shipmentId) {
+      alert('Order must be pushed to Shiprocket first.');
+      return;
+    }
+
+    const config = getAuthHeader();
+    if (!config) return;
+
+    setActionLoadingId(`label-${shipmentId}`);
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/logistics/generate-label`,
+        { shipment_id: shipmentId },
+        config
+      );
+
+      if (data.label_url) {
+        window.open(data.label_url, '_blank');
+      } else {
+        alert('Label generated but URL was not returned.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate shipping label.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // 🚀 LOGISTICS: LIVE TRACK SHIPMENT
+  const handleTrackShipment = async (awbCode) => {
+    if (!awbCode) {
+      alert('No AWB Code assigned to this order yet.');
+      return;
+    }
+
+    const config = getAuthHeader();
+    if (!config) return;
+
+    setActionLoadingId(`track-${awbCode}`);
+    try {
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/logistics/track/${awbCode}`,
+        config
+      );
+      setTrackingModalData(data.tracking);
+    } catch (err) {
+      console.error('Tracking error:', err); // 👈 Logs 'err' to clear ESLint warning
+      alert('Could not retrieve live tracking updates.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // 💰 FINANCE: MARK PAYMENT RECEIVED
   const handleMarkPaymentReceived = async (orderId) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -152,12 +269,13 @@ const AdminDashboard = () => {
         config
       );
       setOrders(prev => prev.map(o => o._id === orderId ? { ...o, isPaid: true, paidAt: data.paidAt || Date.now() } : o));
-    } catch {
+    } catch (err) {
+      console.error('Mark payment received error:', err);
       setOrders(prev => prev.map(o => o._id === orderId ? { ...o, isPaid: true } : o));
     }
   };
 
-  // 📸 BACKEND FILE UPLOAD HANDLER
+  // 📸 BACKEND FILE UPLOAD
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -179,7 +297,6 @@ const AdminDashboard = () => {
         }
       );
 
-      // Extract uploaded image path from backend response
       const uploadedPath = typeof data === 'string' ? data : (data.image || data.path || data.url);
       if (uploadedPath) {
         setProdImages(prev => [...prev, uploadedPath]);
@@ -192,7 +309,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📦 PRODUCT: CREATE / EDIT PRODUCT HANDLER
+  // 📦 PRODUCT: CREATE / EDIT HANDLER
   const handleOpenProductModal = (prod = null) => {
     if (prod) {
       setEditingProduct(prod);
@@ -265,7 +382,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📊 INVENTORY: SAVE STOCK QUANTITY HANDLER
+  // 📊 INVENTORY: SAVE STOCK
   const handleSaveStock = async (productId) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -283,7 +400,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📑 ORDERS: FULFILLMENT STATUS UPDATE HANDLER
+  // 📑 ORDERS: FULFILLMENT STATUS UPDATE
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -317,7 +434,7 @@ const AdminDashboard = () => {
 
   const tabs = [
     { id: 'finance', label: 'Finance', icon: FiDollarSign },
-    { id: 'shipment', label: 'Shipment', icon: FiTruck },
+    { id: 'shipment', label: 'Shipment & Logistics', icon: FiTruck },
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
@@ -386,41 +503,41 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Total Revenue <FiTrendingUp className="text-amber-400" size={18} />
+                Total Gross Revenue <FiTrendingUp className="text-amber-400" size={18} />
               </span>
               <p className="text-3xl font-black text-white">Rs {totalRevenue.toFixed(2)}</p>
-              <p className="text-[11px] text-zinc-500">Gross across all order channels</p>
+              <p className="text-[11px] text-zinc-500">Combined Prepaid & COD order value</p>
             </div>
 
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Revenue Received <FiCheckCircle className="text-emerald-400" size={18} />
+                Revenue Settled <FiCheckCircle className="text-emerald-400" size={18} />
               </span>
               <p className="text-3xl font-black text-emerald-400">Rs {revenueReceived.toFixed(2)}</p>
-              <p className="text-[11px] text-zinc-500">Settled prepaid & COD collected</p>
+              <p className="text-[11px] text-zinc-500">Online gateway & collected COD cash</p>
             </div>
 
             <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
               <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Revenue Pending <FiAlertCircle className="text-amber-400" size={18} />
+                COD Remittance Pending <FiAlertCircle className="text-amber-400" size={18} />
               </span>
               <p className="text-3xl font-black text-amber-400">Rs {revenuePending.toFixed(2)}</p>
-              <p className="text-[11px] text-zinc-500">Awaiting COD collection on delivery</p>
+              <p className="text-[11px] text-zinc-500">To be collected by courier upon delivery</p>
             </div>
           </div>
 
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Per-Order Financial Records</h2>
+            <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Order Revenue Ledger</h2>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-zinc-300">
                 <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
                   <tr>
                     <th className="p-3.5">Order Ref</th>
-                    <th className="p-3.5">Payment Type</th>
-                    <th className="p-3.5">Amount</th>
-                    <th className="p-3.5">Payment Status</th>
-                    <th className="p-3.5 text-right">Action</th>
+                    <th className="p-3.5">Payment Method</th>
+                    <th className="p-3.5">Order Amount</th>
+                    <th className="p-3.5">Settlement Status</th>
+                    <th className="p-3.5 text-right">Manual Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/80">
@@ -434,7 +551,7 @@ const AdminDashboard = () => {
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                             isPrepaid ? 'bg-blue-950 text-blue-400 border border-blue-800' : 'bg-purple-950 text-purple-400 border border-purple-800'
                           }`}>
-                            {isPrepaid ? 'Prepaid (Online)' : 'Postpaid (COD)'}
+                            {isPrepaid ? 'Prepaid (Gateway)' : 'Cash on Delivery'}
                           </span>
                         </td>
                         <td className="p-3.5 font-black text-white">Rs {o.totalPrice || o.itemsPrice}</td>
@@ -451,7 +568,7 @@ const AdminDashboard = () => {
                               onClick={() => handleMarkPaymentReceived(o._id)}
                               className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                             >
-                              Mark Received
+                              Mark Settled
                             </button>
                           ) : (
                             <span className="text-zinc-500 font-bold text-[11px]">✓ Settled</span>
@@ -467,57 +584,122 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 🚚 2. SHIPMENT SECTION */}
+      {/* 🚚 2. SHIPMENT & LOGISTICS CONTROL CENTER */}
       {activeTab === 'shipment' && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-3.5 h-3.5 bg-blue-500 rounded-full animate-ping" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Shiprocket Logistics Gateway</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Shiprocket Live Logistics Control</h3>
               </div>
-              <span className="text-[10px] bg-blue-950 text-blue-400 border border-blue-800 px-3 py-1 rounded-full font-mono font-bold">LIVE HUB ACTIVE</span>
+              <span className="text-[10px] bg-blue-950 text-blue-400 border border-blue-800 px-3 py-1 rounded-full font-mono font-bold">Patna Warehouse (801503)</span>
             </div>
-            <p className="text-xs text-zinc-400">Origin Hub: Patna, Bihar (801503) | Auto-AWB Generation & Courier Partner Handshake</p>
+            <p className="text-xs text-zinc-400">
+              Manage automatic order sync, courier AWB assignment, live tracking, and official shipping label generation directly from your dashboard.
+            </p>
           </div>
 
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Dispatch & Logistics Management</h2>
+            <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">Active Shipments & Courier Dispatch</h2>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-zinc-300">
                 <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
                   <tr>
                     <th className="p-3.5">Order Ref</th>
+                    <th className="p-3.5">Shiprocket IDs</th>
                     <th className="p-3.5">Delivery Address</th>
-                    <th className="p-3.5">Stage Status</th>
-                    <th className="p-3.5 text-right">Logistics Actions</th>
+                    <th className="p-3.5">Current Status</th>
+                    <th className="p-3.5 text-right">Logistics Controls</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/80">
-                  {safeOrders.map((o) => (
-                    <tr key={o._id} className="hover:bg-zinc-900/50 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-amber-400">#{o._id.substring(o._id.length - 8).toUpperCase()}</td>
-                      <td className="p-3.5 text-zinc-400 max-w-[200px] truncate">
-                        {o.shippingAddress?.address}, {o.shippingAddress?.city} - {o.shippingAddress?.postalCode}
-                      </td>
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                          o.isDelivered ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-blue-950 text-blue-400 border border-blue-800'
-                        }`}>
-                          {o.isDelivered ? 'Delivered' : (o.status || 'Warehouse Pickup Pending')}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right space-x-2">
-                        <button
-                          onClick={() => window.print()}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <FiPrinter size={12} /> Print Invoice
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {safeOrders.map((o) => {
+                    const hasShiprocketOrder = Boolean(o.shiprocketOrderId);
+                    const hasAWB = Boolean(o.awbCode);
+
+                    return (
+                      <tr key={o._id} className="hover:bg-zinc-900/50 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-amber-400">
+                          #{o._id.substring(o._id.length - 8).toUpperCase()}
+                        </td>
+
+                        <td className="p-3.5 font-mono text-[11px]">
+                          {hasShiprocketOrder ? (
+                            <div className="space-y-0.5">
+                              <span className="text-emerald-400 block font-bold">SR: {o.shiprocketOrderId}</span>
+                              {o.shipmentId && <span className="text-zinc-400 block text-[10px]">Shipment: {o.shipmentId}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-amber-500/80 italic font-semibold">Not Synced</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-zinc-400 max-w-[180px] truncate">
+                          {o.shippingAddress?.address}, {o.shippingAddress?.city} ({o.shippingAddress?.postalCode})
+                        </td>
+
+                        <td className="p-3.5">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            o.status === 'Cancelled'
+                              ? 'bg-red-950 text-red-400 border border-red-800'
+                              : o.isDelivered
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              : 'bg-blue-950 text-blue-400 border border-blue-800'
+                          }`}>
+                            {o.status || (o.isDelivered ? 'Delivered' : 'Processing')}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5 text-right space-x-2">
+                          {/* 1. Push to Shiprocket */}
+                          {!hasShiprocketOrder && (
+                            <button
+                              onClick={() => handlePushToShiprocket(o)}
+                              disabled={actionLoadingId === `push-${o._id}`}
+                              className="bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <FiSend size={12} /> {actionLoadingId === `push-${o._id}` ? 'Pushing...' : 'Push to SR'}
+                            </button>
+                          )}
+
+                          {/* 2. Generate AWB */}
+                          {hasShiprocketOrder && !hasAWB && (
+                            <button
+                              onClick={() => handleGenerateAWB(o.shipmentId)}
+                              disabled={actionLoadingId === `awb-${o.shipmentId}`}
+                              className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <FiTruck size={12} /> {actionLoadingId === `awb-${o.shipmentId}` ? 'Assigning...' : 'Assign Courier'}
+                            </button>
+                          )}
+
+                          {/* 3. Print Label */}
+                          {hasShiprocketOrder && (
+                            <button
+                              onClick={() => handleGenerateLabel(o.shipmentId)}
+                              disabled={actionLoadingId === `label-${o.shipmentId}`}
+                              className="bg-zinc-800 hover:bg-zinc-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg border border-zinc-700 transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <FiPrinter size={12} /> Print Label
+                            </button>
+                          )}
+
+                          {/* 4. Live Track */}
+                          {hasAWB && (
+                            <button
+                              onClick={() => handleTrackShipment(o.awbCode)}
+                              disabled={actionLoadingId === `track-${o.awbCode}`}
+                              className="bg-purple-950/80 hover:bg-purple-900 text-purple-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-purple-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <FiSearch size={12} /> Live Track
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -677,7 +859,7 @@ const AdminDashboard = () => {
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
           <div className="border-b border-zinc-800 pb-4">
             <h2 className="text-base font-black text-white uppercase tracking-wide">Customer Order Fulfillment Queue</h2>
-            <p className="text-xs text-zinc-400">Update order stage. Changing status automatically triggers notification to customer email & PWA device.</p>
+            <p className="text-xs text-zinc-400">Update order stage. Changing status automatically updates the customer profile timeline.</p>
           </div>
 
           <div className="space-y-4">
@@ -704,6 +886,7 @@ const AdminDashboard = () => {
                       <option value="Processing">Processing</option>
                       <option value="In Transit">In Transit</option>
                       <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
                     </select>
                   </div>
                 </div>
@@ -753,7 +936,7 @@ const AdminDashboard = () => {
                 {usersList.length === 0 ? (
                   <tr>
                     <td colSpan="4" className="p-8 text-center text-zinc-500">
-                      No user records returned from `/api/users`. Ensure your user route exists or refresh live data.
+                      No user records returned from `/api/users`.
                     </td>
                   </tr>
                 ) : (
@@ -778,7 +961,34 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 🖼️ MODAL: ADD / EDIT PRODUCT WITH IMAGE UPLOAD GALLERY */}
+      {/* 🔍 MODAL: LIVE TRACKING DISPLAY */}
+      {trackingModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FiTruck className="text-amber-400" /> Real-time Courier Status
+              </h3>
+              <button onClick={() => setTrackingModalData(null)} className="text-zinc-400 hover:text-white">
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <pre className="bg-zinc-950 p-4 rounded-xl text-xs overflow-x-auto text-zinc-300 max-h-60">
+              {JSON.stringify(trackingModalData, null, 2)}
+            </pre>
+
+            <button
+              onClick={() => setTrackingModalData(null)}
+              className="w-full bg-white text-black font-bold py-2 rounded-xl text-xs"
+            >
+              Close Window
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🖼️ MODAL: ADD / EDIT PRODUCT */}
       {productModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto scrollbar-hide">
@@ -851,14 +1061,12 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* 📸 PRODUCT GALLERY & UPLOAD MORE PICTURES BUTTON */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                   Product Pictures ({prodImages.length} Uploaded)
                 </label>
                 
                 <div className="flex flex-wrap items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-xl min-h-[90px]">
-                  {/* Thumbnails of already uploaded product pictures */}
                   {prodImages.map((imgUrl, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-700 bg-zinc-800 group flex-shrink-0">
                       <img src={getImageUrl(imgUrl)} alt={`Product ${idx}`} className="w-full h-full object-cover" />
@@ -873,7 +1081,6 @@ const AdminDashboard = () => {
                     </div>
                   ))}
 
-                  {/* 📤 Native Upload Picture Button */}
                   <label className="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-700 hover:border-amber-500 flex flex-col items-center justify-center text-zinc-400 hover:text-amber-400 cursor-pointer transition-colors text-center p-1 bg-zinc-900/50 flex-shrink-0">
                     {uploadingImage ? (
                       <FiRefreshCw className="animate-spin text-amber-400" size={18} />

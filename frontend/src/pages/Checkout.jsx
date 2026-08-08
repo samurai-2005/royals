@@ -41,6 +41,14 @@ const Checkout = () => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
+  const getEffectivePrice = (item) => {
+    if (item.discountPrice && item.discountPrice > 0) return item.discountPrice;
+    if (item.discountPercentage && item.discountPercentage > 0) {
+      return item.price - (item.price * item.discountPercentage) / 100;
+    }
+    return item.price;
+  };
+
   const handleCheckPincode = async () => {
     if (!shippingAddress.postalCode || shippingAddress.postalCode.length < 6) {
       setPincodeError('Enter a valid 6-digit Pincode');
@@ -103,8 +111,8 @@ const Checkout = () => {
           name: item.name,
           qty: item.qty,
           size: item.size,
-          image: item.images && item.images.length > 0 ? item.images[0] : '',
-          price: item.discountPercentage > 0 ? item.discountPrice : item.price,
+          image: item.images && item.images.length > 0 ? item.images[0] : item.image || '',
+          price: getEffectivePrice(item), // 👈 Uses discounted price
           product: item._id
         })),
         shippingAddress,
@@ -305,6 +313,7 @@ const Checkout = () => {
 
           <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
             {cartItems.map((item) => {
+              const effectivePrice = getEffectivePrice(item);
               const rawImg = item.images && item.images.length > 0 ? item.images[0] : item.image;
               const displayImg = getImageUrl(rawImg);
 
@@ -331,7 +340,7 @@ const Checkout = () => {
                   </div>
 
                   <span className="font-bold text-white flex-shrink-0">
-                    Rs {(item.discountPercentage > 0 ? item.discountPrice : item.price) * item.qty}
+                    Rs {effectivePrice * item.qty}
                   </span>
                 </div>
               );

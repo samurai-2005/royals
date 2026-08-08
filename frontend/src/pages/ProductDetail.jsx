@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { FiShoppingBag, FiTruck, FiBell, FiCheckCircle } from 'react-icons/fi';
+import { FiShoppingBag, FiTruck, FiBell, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 
 const ProductDetail = () => {
@@ -10,8 +10,12 @@ const ProductDetail = () => {
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('M');
+
+  // Live Shiprocket Pincode States
   const [pincode, setPincode] = useState('');
-  const [pincodeStatus, setPincodeStatus] = useState(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+  const [pincodeResult, setPincodeResult] = useState(null);
+  const [pincodeError, setPincodeError] = useState('');
 
   // "Notify Me" Waitlist States
   const [subscribing, setSubscribing] = useState(false);
@@ -38,13 +42,47 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id]);
 
-  // Handle "Notify Me" click for Out-of-Stock items
+  // LIVE SHIPROCKET SERVICEABILITY CHECK
+  const handleCheckPincode = async () => {
+    if (!pincode || pincode.length !== 6) {
+      setPincodeError('Enter a valid 6-digit Pincode');
+      return;
+    }
+
+    setCheckingPincode(true);
+    setPincodeError('');
+    setPincodeResult(null);
+
+    try {
+      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/serviceability`, {
+        delivery_postcode: pincode,
+        weight: 0.5,
+        cod: 1
+      });
+
+      if (data.success && data.data?.available_courier_companies?.length > 0) {
+        const topCourier = data.data.available_courier_companies[0];
+        setPincodeResult({
+          courier: topCourier.courier_name,
+          etd: topCourier.etd || '3-5 Days',
+          cod: topCourier.cod === 1
+        });
+      } else {
+        setPincodeError('Delivery is currently unavailable for this pincode.');
+      }
+    } catch (err) {
+      console.error('Pincode check error:', err);
+      setPincodeError('Unable to check delivery status.');
+    } finally {
+      setCheckingPincode(false);
+    }
+  };
+
   const handleNotifyMe = async () => {
     setSubscribing(true);
     try {
       let subscription = null;
 
-      // 1. Request push permission if available
       if ('Notification' in window) {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
@@ -63,7 +101,6 @@ const ProductDetail = () => {
       const userInfo = JSON.parse(localStorage.getItem('userInfo')) || {};
       const config = userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : {};
 
-      // 2. Submit to backend waitlist
       await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}/notify-me`,
         { subscription, email: userInfo?.email },
@@ -103,14 +140,12 @@ const ProductDetail = () => {
               className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-60 grayscale' : ''}`}
             />
             
-            {/* Sale Badge */}
             {product.discountPercentage > 0 && !isOutOfStock && (
               <span className="absolute top-4 left-4 bg-red-600 text-white text-xs font-black px-3 py-1 rounded-full uppercase shadow-lg">
                 {product.discountPercentage}% OFF
               </span>
             )}
 
-            {/* Out of Stock Overlay Badge */}
             {isOutOfStock && (
               <span className="absolute top-4 left-4 bg-zinc-800 text-red-400 border border-red-500/30 text-xs font-black px-3 py-1.5 rounded-full uppercase shadow-lg">
                 Sold Out
@@ -118,7 +153,6 @@ const ProductDetail = () => {
             )}
           </div>
 
-          {/* Image Thumbnails */}
           {images.length > 1 && (
             <div className="flex gap-3 overflow-x-auto pb-2">
               {images.map((img, idx) => (
@@ -136,7 +170,7 @@ const ProductDetail = () => {
           )}
         </div>
 
-        {/* Right: Product Details & Add to Cart / Notify Me */}
+        {/* Right: Product Details & Live Delivery Checker */}
         <div className="space-y-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -167,10 +201,10 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Delivery Availability Checker */}
-          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-4">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center mb-2">
-              <FiTruck className="mr-2" /> Check Delivery Availability
+          {/* LIVE SHIPROCKET DELIVERY CHECKER */}
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-4 space-y-3">
+            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center">
+              <FiTruck className="mr-2" /> Check Live Delivery & COD Availability
             </label>
             <div className="flex gap-2">
               <input
@@ -182,13 +216,31 @@ const ProductDetail = () => {
                 className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-500 flex-1"
               />
               <button 
-                onClick={() => setPincodeStatus(pincode.length === 6 ? 'Deliverable to your area in 3-5 days' : 'Invalid Pincode')}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                onClick={handleCheckPincode}
+                disabled={checkingPincode}
+                className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
-                Check
+                {checkingPincode ? 'Checking...' : 'Check'}
               </button>
             </div>
-            {pincodeStatus && <p className="text-xs text-green-400 font-semibold mt-2">{pincodeStatus}</p>}
+
+            {pincodeResult && (
+              <div className="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-400 text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <FiCheckCircle /> Serviceable by {pincodeResult.courier}
+                </div>
+                <div className="text-zinc-300 text-[11px] flex justify-between">
+                  <span>Est. Delivery: <strong>{pincodeResult.etd}</strong></span>
+                  <span>COD: <strong>{pincodeResult.cod ? 'Available' : 'Prepaid Only'}</strong></span>
+                </div>
+              </div>
+            )}
+
+            {pincodeError && (
+              <div className="bg-red-950/40 border border-red-800/60 p-3 rounded-lg text-red-400 text-xs flex items-center gap-1.5">
+                <FiAlertCircle /> {pincodeError}
+              </div>
+            )}
           </div>
 
           <p className="text-sm text-zinc-400 leading-relaxed">{product.description}</p>
@@ -213,12 +265,12 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* DYNAMIC ACTION BUTTON: Add to Cart OR Notify Me when In Stock */}
+          {/* Action Button */}
           {isOutOfStock ? (
             <div className="space-y-3">
               {notifySuccess ? (
                 <div className="w-full bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold p-4 rounded-xl flex items-center justify-center gap-2 text-xs">
-                  <FiCheckCircle size={16} /> Subscribed! We will push a notification as soon as this item is restocked.
+                  <FiCheckCircle size={16} /> Subscribed! We will notify you when this item is restocked.
                 </div>
               ) : (
                 <button

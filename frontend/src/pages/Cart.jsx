@@ -6,11 +6,23 @@ const Cart = () => {
   const navigate = useNavigate();
   const { cartItems, removeFromCart, updateQty, cartTotal } = useCart();
 
+  const FREE_SHIPPING_THRESHOLD = 300;
+  const BASE_SHIPPING_FEE = 60;
+  const shippingFee = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : BASE_SHIPPING_FEE;
+
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
     const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
+  const getEffectivePrice = (item) => {
+    if (item.discountPrice && item.discountPrice > 0) return item.discountPrice;
+    if (item.discountPercentage && item.discountPercentage > 0) {
+      return item.price - (item.price * item.discountPercentage) / 100;
+    }
+    return item.price;
   };
 
   if (cartItems.length === 0) {
@@ -21,7 +33,7 @@ const Cart = () => {
         </div>
         <h2 className="text-xl md:text-2xl font-bold text-white mb-2">Your Cart is Empty</h2>
         <p className="text-sm max-w-xs md:max-w-md mb-6 text-zinc-500">
-          Looks like you haven't added any uniform items or kit bundles to your cart yet.
+          Looks like you haven't added any items to your cart yet.
         </p>
         <button 
           onClick={() => navigate('/catalog')} 
@@ -42,7 +54,7 @@ const Cart = () => {
         {/* LEFT COLUMN: Item Cards */}
         <div className="lg:col-span-2 space-y-4">
           {cartItems.map((item) => {
-            const itemPrice = item.discountPercentage > 0 ? item.discountPrice : item.price;
+            const effectivePrice = getEffectivePrice(item);
             const rawImg = item.images && item.images.length > 0 ? item.images[0] : item.image;
             const displayImg = getImageUrl(rawImg);
 
@@ -51,11 +63,9 @@ const Cart = () => {
                 key={`${item._id}-${item.size}`} 
                 className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 md:p-5 flex gap-4 md:gap-6 items-center shadow-lg relative"
               >
-                {/* Clickable Product Image */}
                 <Link 
                   to={`/product/${item._id}`}
                   className="w-20 h-20 md:w-28 md:h-28 bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                  title="View product details"
                 >
                   {displayImg ? (
                     <img 
@@ -71,15 +81,13 @@ const Cart = () => {
                   )}
                 </Link>
 
-                {/* Details & Controls */}
                 <div className="flex-1 min-w-0 pr-8 md:pr-0">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4 mb-2">
-                    {/* Clickable Product Title */}
                     <Link to={`/product/${item._id}`} className="truncate hover:underline">
                       <h3 className="font-bold text-white text-sm md:text-lg truncate">{item.name}</h3>
                     </Link>
                     <p className="text-base md:text-lg font-black text-white">
-                      Rs {itemPrice * item.qty}
+                      Rs {effectivePrice * item.qty}
                     </p>
                   </div>
                   
@@ -87,7 +95,6 @@ const Cart = () => {
                     Size: <span className="text-zinc-200 font-bold bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">{item.size}</span>
                   </p>
 
-                  {/* Quantity Increments (+ / -) */}
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-zinc-500 font-semibold hidden md:inline">Quantity:</span>
                     <div className="flex items-center bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-inner">
@@ -95,7 +102,6 @@ const Cart = () => {
                         onClick={() => updateQty && updateQty(item._id, item.size, item.qty - 1)}
                         className="px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-30"
                         disabled={item.qty <= 1}
-                        title="Decrease Quantity"
                       >
                         <FiMinus size={14} />
                       </button>
@@ -107,7 +113,6 @@ const Cart = () => {
                       <button 
                         onClick={() => updateQty && updateQty(item._id, item.size, item.qty + 1)}
                         className="px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-                        title="Increase Quantity"
                       >
                         <FiPlus size={14} />
                       </button>
@@ -115,11 +120,9 @@ const Cart = () => {
                   </div>
                 </div>
 
-                {/* Delete Button */}
                 <button 
                   onClick={() => removeFromCart(item._id, item.size)}
                   className="absolute top-4 right-4 md:static text-zinc-500 hover:text-red-400 transition-colors p-2 hover:bg-red-950/30 rounded-lg"
-                  title="Remove Item"
                 >
                   <FiTrash2 size={18} />
                 </button>
@@ -128,7 +131,7 @@ const Cart = () => {
           })}
         </div>
 
-        {/* RIGHT COLUMN: Order Summary (Sticky on Desktop) */}
+        {/* RIGHT COLUMN: Order Summary */}
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 h-fit sticky top-6">
           <h2 className="text-xl font-bold border-b border-zinc-800 pb-4">Order Summary</h2>
 
@@ -140,8 +143,8 @@ const Cart = () => {
             
             <div className="flex justify-between items-center">
               <span>Estimated Shipping</span>
-              <span className="text-green-400 font-bold text-sm">
-                {cartTotal > 2000 ? 'FREE' : 'Rs 150.00'}
+              <span className={shippingFee === 0 ? "text-emerald-400 font-bold" : "text-white"}>
+                {shippingFee === 0 ? 'FREE' : `Rs ${shippingFee.toFixed(2)}`}
               </span>
             </div>
           </div>
@@ -150,7 +153,7 @@ const Cart = () => {
 
           <div className="flex justify-between items-center text-xl font-black text-white">
             <span>Total Amount</span>
-            <span>Rs {(cartTotal + (cartTotal > 2000 ? 0 : 150)).toFixed(2)}</span>
+            <span>Rs {(cartTotal + shippingFee).toFixed(2)}</span>
           </div>
 
           <button 
