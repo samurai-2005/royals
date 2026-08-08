@@ -6,7 +6,10 @@ import {
   FiArrowLeft, 
   FiClock, 
   FiTruck, 
-  FiCheckCircle 
+  FiCheckCircle,
+  FiXCircle,
+  FiRotateCcw,
+  FiSearch
 } from 'react-icons/fi';
 
 const Orders = () => {
@@ -14,6 +17,13 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Reload trigger state to re-fetch orders after actions
+  const [reload, setReload] = useState(0);
+
+  // Action Loading States
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [trackingInfo, setTrackingInfo] = useState(null);
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
@@ -23,37 +33,109 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    const userInfoString = localStorage.getItem('userInfo');
-    const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
-
-    if (!userInfo || !userInfo.token) {
-      navigate('/login');
-      return;
-    }
+    let isMounted = true;
 
     const fetchMyOrders = async () => {
-      try {
-        const config = {
-          headers: {
-            Authorization: `Bearer ${userInfo.token}`,
-          },
-        };
+      const userInfoString = localStorage.getItem('userInfo');
+      const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
 
-        const { data } = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api/orders/myorders`,
-          config
-        );
-        setOrders(data);
+      if (!userInfo || !userInfo.token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/orders/myorders`, config);
+        
+        if (isMounted) {
+          setOrders(data);
+          setError('');
+        }
       } catch (err) {
-        console.error('Failed to fetch orders:', err);
-        setError(err.response?.data?.message || 'Failed to load order history.');
+        console.error('Fetch orders error:', err);
+        if (isMounted) {
+          setError(err.response?.data?.message || 'Failed to load order history.');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchMyOrders();
-  }, [navigate]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate, reload]);
+
+  // Live Tracking Action
+  const handleTrackOrder = async (awbCode) => {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    setActionLoadingId(awbCode);
+    try {
+      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/track/${awbCode}`, config);
+      setTrackingInfo(data.tracking);
+    } catch (err) {
+      console.error('Track order error:', err);
+      alert('Could not fetch real-time tracking data.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Self-Service Cancellation
+  const handleCancelOrder = async (mongoOrderId, shiprocketOrderId) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    setActionLoadingId(mongoOrderId);
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/cancel-order`, {
+        mongoOrderId,
+        shiprocketOrderId
+      }, config);
+
+      alert('Order cancelled successfully.');
+      setReload((prev) => prev + 1);
+    } catch (err) {
+      console.error('Cancel order error:', err);
+      alert('Failed to cancel order.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Return / Exchange Action
+  const handleRequestReturn = async (order) => {
+    if (!window.confirm('Schedule a reverse return pickup for this delivered order?')) return;
+
+    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    setActionLoadingId(order._id);
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/create-return`, {
+        orderId: order._id,
+        orderItems: order.orderItems,
+        shippingAddress: order.shippingAddress,
+        user: userInfo
+      }, config);
+
+      alert('Return pickup scheduled! Courier will collect package from your doorstep.');
+      setReload((prev) => prev + 1);
+    } catch (err) {
+      console.error('Request return error:', err);
+      alert('Failed to schedule return.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   return (
     <div className="min-h-[calc(100vh-220px)] text-white p-4 md:p-8 max-w-5xl mx-auto space-y-6">
@@ -72,7 +154,7 @@ const Orders = () => {
             <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-wide">
               Order History
             </h1>
-            <p className="text-xs text-zinc-400">Track and review your past uniform purchases</p>
+            <p className="text-xs text-zinc-400">Track and review your past purchases</p>
           </div>
         </div>
 
@@ -83,7 +165,6 @@ const Orders = () => {
         )}
       </div>
 
-      {/* Loading State */}
       {loading && (
         <div className="py-20 text-center space-y-3">
           <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -91,14 +172,12 @@ const Orders = () => {
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-950/40 border border-red-800/60 p-4 rounded-2xl text-red-400 text-xs text-center font-medium">
           {error}
         </div>
       )}
 
-      {/* Empty State */}
       {!loading && !error && orders.length === 0 && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-12 text-center text-zinc-500 min-h-[350px] flex flex-col items-center justify-center space-y-4 shadow-xl">
           <div className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 text-zinc-600">
@@ -107,7 +186,7 @@ const Orders = () => {
           <div>
             <h3 className="text-base font-bold text-zinc-300">No Orders Found</h3>
             <p className="text-xs text-zinc-500 mt-1 max-w-sm">
-              You haven't placed any orders yet. Explore our uniform directory to get started!
+              You haven't placed any orders yet. Explore our directory to get started!
             </p>
           </div>
           <button
@@ -115,17 +194,18 @@ const Orders = () => {
             onClick={() => navigate('/catalog')}
             className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider hover:from-amber-400 hover:to-amber-500 transition-all cursor-pointer shadow-lg"
           >
-            Browse Uniform Directory
+            Browse Directory
           </button>
         </div>
       )}
 
-      {/* Orders List */}
       {!loading && !error && orders.length > 0 && (
         <div className="space-y-4">
           {orders.map((order) => {
             const isPaid = order.isPaid;
             const isDelivered = order.isDelivered;
+            const isCancelled = order.status === 'Cancelled';
+            const isReturnRequested = order.status === 'Return Requested';
 
             return (
               <div
@@ -144,7 +224,6 @@ const Orders = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Payment Status Badge */}
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
                         isPaid
@@ -156,16 +235,19 @@ const Orders = () => {
                       {isPaid ? 'Paid' : 'Payment Pending'}
                     </span>
 
-                    {/* Delivery Status Badge */}
                     <span
                       className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
-                        isDelivered
+                        isCancelled
+                          ? 'bg-red-950/80 text-red-400 border-red-800/80'
+                          : isReturnRequested
+                          ? 'bg-purple-950/80 text-purple-400 border-purple-800/80'
+                          : isDelivered
                           ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800/80'
                           : 'bg-blue-950/80 text-blue-400 border-blue-800/80'
                       }`}
                     >
                       <FiTruck size={12} />
-                      {isDelivered ? 'Delivered' : 'Processing / In Transit'}
+                      {order.status || (isDelivered ? 'Delivered' : 'Processing / Shipped')}
                     </span>
                   </div>
                 </div>
@@ -201,8 +283,8 @@ const Orders = () => {
                   ))}
                 </div>
 
-                {/* Order Footer Summary */}
-                <div className="border-t border-zinc-800/80 pt-4 flex items-center justify-between text-xs">
+                {/* Action Toolbar */}
+                <div className="border-t border-zinc-800/80 pt-4 flex flex-wrap items-center justify-between gap-4 text-xs">
                   <div>
                     <span className="text-zinc-500 font-medium">Placed on: </span>
                     <span className="text-zinc-300 font-semibold">
@@ -214,17 +296,65 @@ const Orders = () => {
                     </span>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-zinc-400 text-[11px] block">Total Amount</span>
-                    <span className="text-base font-black text-white">
-                      Rs {order.totalPrice || order.itemsPrice}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    {/* Live Tracking Button */}
+                    {order.awbCode && (
+                      <button
+                        onClick={() => handleTrackOrder(order.awbCode)}
+                        disabled={actionLoadingId === order.awbCode}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-3 py-1.5 rounded-lg border border-zinc-700 flex items-center gap-1"
+                      >
+                        <FiSearch /> {actionLoadingId === order.awbCode ? 'Loading...' : 'Track Package'}
+                      </button>
+                    )}
+
+                    {/* Cancel Order Button */}
+                    {!isDelivered && !isCancelled && !isReturnRequested && (
+                      <button
+                        onClick={() => handleCancelOrder(order._id, order.shiprocketOrderId)}
+                        disabled={actionLoadingId === order._id}
+                        className="bg-red-950/60 hover:bg-red-900/80 text-red-400 font-bold px-3 py-1.5 rounded-lg border border-red-800/80 flex items-center gap-1"
+                      >
+                        <FiXCircle /> {actionLoadingId === order._id ? 'Cancelling...' : 'Cancel Order'}
+                      </button>
+                    )}
+
+                    {/* Return Request Button */}
+                    {isDelivered && !isReturnRequested && (
+                      <button
+                        onClick={() => handleRequestReturn(order)}
+                        disabled={actionLoadingId === order._id}
+                        className="bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 font-bold px-3 py-1.5 rounded-lg border border-purple-800/80 flex items-center gap-1"
+                      >
+                        <FiRotateCcw /> Return / Exchange
+                      </button>
+                    )}
                   </div>
                 </div>
 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Tracking Modal */}
+      {trackingInfo && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <FiTruck className="text-amber-400" /> Package Tracking
+            </h3>
+            <pre className="bg-zinc-950 p-4 rounded-xl text-xs overflow-x-auto text-zinc-300 max-h-60">
+              {JSON.stringify(trackingInfo, null, 2)}
+            </pre>
+            <button
+              onClick={() => setTrackingInfo(null)}
+              className="w-full bg-white text-black font-bold py-2 rounded-xl"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 

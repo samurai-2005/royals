@@ -2,13 +2,11 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 
-// In-memory token cache to prevent authentication throttling
 let cachedToken = null;
 let tokenExpiry = null;
 
 // Helper: Authenticate with Live Shiprocket API
 const getShiprocketToken = async () => {
-  // Reuse cached token if valid (Tokens last 10 days; refresh after 9 days)
   if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
     return cachedToken;
   }
@@ -106,7 +104,6 @@ const createShiprocketOrder = async (req, res) => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    // Save Shiprocket IDs to MongoDB Order if order ID exists
     if (orderId && data.order_id) {
       await Order.findByIdAndUpdate(orderId, {
         shiprocketOrderId: data.order_id,
@@ -197,7 +194,90 @@ const generateLabel = async (req, res) => {
   }
 };
 
-// 5. WEBHOOK FOR REAL-TIME TRACKING & NDR (FIXED FOR DUMMY TEST DATA)
+// 5. REAL-TIME TRACKING VIA AWB
+const trackShipment = async (req, res) => {
+  const { awb } = req.params;
+
+  try {
+    const token = await getShiprocketToken();
+    const { data } = await axios.get(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    res.json({ success: true, tracking: data });
+  } catch (error) {
+    console.error('Shiprocket Tracking Error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to retrieve tracking information.' });
+  }
+};
+
+// 6. CANCELLATION API
+const cancelShiprocketOrder = async (req, res) => {
+  const { mongoOrderId, shiprocketOrderId } = req.body;
+
+  try {
+    const token = await getShiprocketToken();
+
+    if (shiprocketOrderId) {
+      await axios.post(
+        'https://apiv2.shiprocket.in/v1/external/orders/cancel',
+        { ids: [shiprocketOrderId] },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
+
+    await Order.findByIdAndUpdate(mongoOrderId, { status: 'Cancelled' });
+
+    res.json({ success: true, message: 'Order cancelled successfully.' });
+  } catch (error) {
+    console.error('Shiprocket Cancel Error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to cancel order in Shiprocket.' });
+  }
+};
+
+// 7. RETURN / EXCHANGE API
+const createReturnOrder = async (req, res) => {
+  const { orderId, orderItems, shippingAddress, user } = req.body;
+
+  try {
+    const token = await getShiprocketToken();
+
+    const payload = {
+      order_id: `RET_${String(orderId).substring(0, 16)}`,
+      order_date: new Date().toISOString().split('T')[0],
+      pickup_customer_name: user?.name || shippingAddress?.name || 'Valued Customer',
+      pickup_address: shippingAddress?.address || '',
+      pickup_city: shippingAddress?.city || 'Patna',
+      pickup_pincode: shippingAddress?.postalCode || '',
+      pickup_state: shippingAddress?.state || 'Bihar',
+      pickup_country: 'India',
+      pickup_email: user?.email || 'customer@royaltailors.net',
+      pickup_phone: shippingAddress?.phone || user?.phone || '9999999999',
+      order_items: (orderItems || []).map((item) => ({
+        name: item.name,
+        sku: String(item.product || item._id).substring(0, 10),
+        units: item.qty || 1,
+        selling_price: item.price
+      })),
+      length: 10, breadth: 10, height: 5, weight: 0.5
+    };
+
+    const { data } = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/orders/create/return',
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    await Order.findByIdAndUpdate(orderId, { status: 'Return Requested' });
+
+    res.json({ success: true, message: 'Reverse return pickup scheduled!', data });
+  } catch (error) {
+    console.error('Shiprocket Return Error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to schedule return pickup.' });
+  }
+};
+
+// 8. WEBHOOK FOR REAL-TIME TRACKING & AUTOMATED COD PAYMENT FLIP
 const shiprocketWebhook = async (req, res) => {
   try {
     const trackingData = req.body;
@@ -210,12 +290,14 @@ const shiprocketWebhook = async (req, res) => {
       if (current_status) updateFields.status = current_status;
       if (awb) updateFields.awbCode = awb;
 
+      // 🚀 FIXED: Automatically set isPaid to true when COD parcel is delivered
       if (current_status === 'DELIVERED' || current_status === 'Delivered') {
         updateFields.isDelivered = true;
         updateFields.deliveredAt = Date.now();
+        updateFields.isPaid = true;
+        updateFields.paidAt = Date.now();
       }
 
-      // Safe Query: Only search by _id if order_id is a valid 24-character hex ObjectId
       const queryConditions = [{ shiprocketOrderId: String(order_id) }];
 
       if (mongoose.Types.ObjectId.isValid(order_id)) {
@@ -228,11 +310,9 @@ const shiprocketWebhook = async (req, res) => {
       );
     }
 
-    // Always respond 200 OK so Shiprocket test runner succeeds
     return res.status(200).json({ success: true, message: 'Webhook Processed' });
   } catch (error) {
     console.error('Webhook Processing Error:', error.message);
-    // Return 200 even on processing errors so test payloads pass
     return res.status(200).json({ success: false, error: error.message });
   }
 };
@@ -242,5 +322,8 @@ module.exports = {
   createShiprocketOrder, 
   generateAWB, 
   generateLabel, 
+  trackShipment,
+  cancelShiprocketOrder,
+  createReturnOrder,
   shiprocketWebhook 
 };

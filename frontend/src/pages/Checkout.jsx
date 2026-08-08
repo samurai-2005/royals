@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
-import { FiLock, FiMapPin } from 'react-icons/fi';
+import { FiLock, FiMapPin, FiTruck, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -19,7 +19,15 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const shippingFee = cartTotal > 2000 ? 0 : 150;
+  // Pincode Serviceability States
+  const [checkingPincode, setCheckingPincode] = useState(false);
+  const [serviceability, setServiceability] = useState(null);
+  const [pincodeError, setPincodeError] = useState('');
+
+  // Free shipping on orders ₹300 and above
+  const FREE_SHIPPING_THRESHOLD = 300;
+  const BASE_SHIPPING_FEE = 60;
+  const shippingFee = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : BASE_SHIPPING_FEE;
   const grandTotal = cartTotal + shippingFee;
 
   const handleChange = (e) => {
@@ -31,6 +39,42 @@ const Checkout = () => {
     if (imagePath.startsWith('http')) return imagePath;
     const baseUrl = import.meta.env.VITE_BACKEND_URL || '';
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
+  const handleCheckPincode = async () => {
+    if (!shippingAddress.postalCode || shippingAddress.postalCode.length < 6) {
+      setPincodeError('Enter a valid 6-digit Pincode');
+      return;
+    }
+
+    setCheckingPincode(true);
+    setPincodeError('');
+    setServiceability(null);
+
+    try {
+      const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/serviceability`, {
+        delivery_postcode: shippingAddress.postalCode,
+        weight: 0.5,
+        cod: paymentMethod === 'COD' ? 1 : 0
+      });
+
+      if (data.success && data.data?.available_courier_companies?.length > 0) {
+        const fastestCourier = data.data.available_courier_companies[0];
+        setServiceability({
+          available: true,
+          courier: fastestCourier.courier_name,
+          etd: fastestCourier.etd || '3-5 Days',
+          codAvailable: fastestCourier.cod === 1
+        });
+      } else {
+        setPincodeError('Delivery is currently unavailable for this pincode.');
+      }
+    } catch (err) {
+      console.error('Serviceability check error:', err);
+      setPincodeError('Could not verify pincode serviceability.');
+    } finally {
+      setCheckingPincode(false);
+    }
   };
 
   const handlePlaceOrder = async (e) => {
@@ -76,17 +120,18 @@ const Checkout = () => {
         config
       );
 
-      // Trigger Shiprocket Order Creation in the background
+      // Background Shiprocket Sync
       try {
-        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/shiprocket/create-order`, {
+        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/create-order`, {
           orderId: data._id,
           orderItems: orderPayload.orderItems,
           shippingAddress,
           totalPrice: grandTotal,
-          user: userInfo
-        });
+          user: userInfo,
+          paymentMethod
+        }, config);
       } catch (shiprocketErr) {
-        console.warn('Shiprocket background sync skipped:', shiprocketErr);
+        console.warn('Shiprocket background sync deferred to Admin action:', shiprocketErr);
       }
 
       clearCart();
@@ -117,6 +162,19 @@ const Checkout = () => {
       <h1 className="text-3xl font-black mb-8 flex items-center">
         <FiLock className="mr-3 text-zinc-400"/> Secure Checkout
       </h1>
+
+      {/* Free Delivery Threshold Alert */}
+      {cartTotal < FREE_SHIPPING_THRESHOLD && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-4 rounded-xl mb-6 flex items-center justify-between text-xs md:text-sm font-semibold">
+          <span className="flex items-center gap-2">
+            <FiTruck size={18} />
+            Add Rs {(FREE_SHIPPING_THRESHOLD - cartTotal).toFixed(2)} more to qualify for <strong>FREE DELIVERY</strong>!
+          </span>
+          <Link to="/catalog" className="underline font-bold text-white hover:text-amber-300">
+            Browse More
+          </Link>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-800 text-red-400 p-4 rounded-lg mb-6 font-semibold">
@@ -158,18 +216,45 @@ const Checkout = () => {
                     className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
+                
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">PIN Code</label>
-                  <input 
-                    type="text" 
-                    name="postalCode" 
-                    required 
-                    value={shippingAddress.postalCode} 
-                    onChange={handleChange} 
-                    className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      name="postalCode" 
+                      required 
+                      value={shippingAddress.postalCode} 
+                      onChange={handleChange} 
+                      className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCheckPincode}
+                      disabled={checkingPincode}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-xs text-amber-400 font-bold px-3 rounded-lg border border-zinc-700 transition-colors flex-shrink-0"
+                    >
+                      {checkingPincode ? 'Checking...' : 'Verify'}
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Serviceability Feedback */}
+              {serviceability && (
+                <div className="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-400 text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <FiCheckCircle /> Serviceable by {serviceability.courier}
+                  </span>
+                  <span className="text-zinc-300">Est. Delivery: <strong>{serviceability.etd}</strong></span>
+                </div>
+              )}
+
+              {pincodeError && (
+                <div className="bg-red-950/40 border border-red-800/60 p-3 rounded-lg text-red-400 text-xs flex items-center gap-1.5">
+                  <FiAlertCircle /> {pincodeError}
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">State</label>
@@ -226,11 +311,9 @@ const Checkout = () => {
               return (
                 <div key={`${item._id}-${item.size}`} className="flex items-center justify-between text-sm gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Clickable Image Thumbnail in Checkout */}
                     <Link 
                       to={`/product/${item._id}`}
                       className="w-12 h-12 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center hover:opacity-80 transition-opacity"
-                      title="View Product"
                     >
                       {displayImg ? (
                         <img src={displayImg} alt={item.name} className="w-full h-full object-cover" />
@@ -239,7 +322,6 @@ const Checkout = () => {
                       )}
                     </Link>
 
-                    {/* Clickable Item Name */}
                     <div className="min-w-0">
                       <Link to={`/product/${item._id}`} className="hover:underline block truncate">
                         <p className="font-bold text-white truncate">{item.name}</p>
@@ -264,8 +346,8 @@ const Checkout = () => {
               <span className="text-white">Rs {cartTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Shipping</span>
-              <span className="text-white">
+              <span>Shipping Fee</span>
+              <span className={shippingFee === 0 ? "text-emerald-400 font-bold" : "text-white"}>
                 {shippingFee === 0 ? 'FREE' : `Rs ${shippingFee.toFixed(2)}`}
               </span>
             </div>
