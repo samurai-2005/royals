@@ -7,6 +7,15 @@ export const useCart = () => {
   return useContext(CartContext);
 };
 
+// Helper: Calculate net discounted price for any product
+const getEffectivePrice = (item) => {
+  if (item.discountPrice && item.discountPrice > 0) return item.discountPrice;
+  if (item.discountPercentage && item.discountPercentage > 0) {
+    return item.price - (item.price * item.discountPercentage) / 100;
+  }
+  return item.price || 0;
+};
+
 export const CartProvider = ({ children }) => {
   // Load cart from local storage on initial render, or default to an empty array
   const [cartItems, setCartItems] = useState(() => {
@@ -69,7 +78,12 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
   };
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
+  // 🎯 FIX: Total now correctly sums discounted price x quantity
+  const cartTotal = cartItems.reduce(
+    (acc, item) => acc + getEffectivePrice(item) * item.qty,
+    0
+  );
+  
   const cartCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
 
   return (
