@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
-import { FiLock, FiMapPin, FiTruck, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiLock, FiMapPin, FiTruck, FiCheckCircle, FiAlertCircle, FiPhone } from 'react-icons/fi';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -12,7 +12,8 @@ const Checkout = () => {
     address: 'Rupaspur, Bailey Road',
     city: 'Patna',
     postalCode: '801503',
-    state: 'Bihar'
+    state: 'Bihar',
+    phone: '9876543210' // 👈 Default 10-digit mobile number
   });
 
   const [paymentMethod, setPaymentMethod] = useState('COD');
@@ -112,7 +113,7 @@ const Checkout = () => {
           qty: item.qty,
           size: item.size,
           image: item.images && item.images.length > 0 ? item.images[0] : item.image || '',
-          price: getEffectivePrice(item), // 👈 Uses discounted price
+          price: getEffectivePrice(item),
           product: item._id
         })),
         shippingAddress,
@@ -171,7 +172,6 @@ const Checkout = () => {
         <FiLock className="mr-3 text-zinc-400"/> Secure Checkout
       </h1>
 
-      {/* Free Delivery Threshold Alert */}
       {cartTotal < FREE_SHIPPING_THRESHOLD && (
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-4 rounded-xl mb-6 flex items-center justify-between text-xs md:text-sm font-semibold">
           <span className="flex items-center gap-2">
@@ -207,6 +207,22 @@ const Checkout = () => {
                   name="address" 
                   required 
                   value={shippingAddress.address} 
+                  onChange={handleChange} 
+                  className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 flex items-center gap-1">
+                  <FiPhone /> Contact Mobile Number (For Delivery Agent)
+                </label>
+                <input 
+                  type="tel" 
+                  name="phone" 
+                  required 
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
+                  value={shippingAddress.phone} 
                   onChange={handleChange} 
                   className="w-full bg-[#0f0f0f] border border-zinc-700 rounded px-4 py-3 text-white focus:outline-none focus:border-zinc-500"
                 />
@@ -248,7 +264,6 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Serviceability Feedback */}
               {serviceability && (
                 <div className="bg-emerald-950/40 border border-emerald-800/60 p-3 rounded-lg text-emerald-400 text-xs flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-semibold">

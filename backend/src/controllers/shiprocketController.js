@@ -5,6 +5,18 @@ const Order = require('../models/Order');
 let cachedToken = null;
 let tokenExpiry = null;
 
+// Helper: Sanitize & format phone numbers to strict 10-digit Indian mobile format
+const sanitizePhone = (phoneStr) => {
+  if (!phoneStr) return '9876543210';
+  let digits = String(phoneStr).replace(/\D/g, ''); // Keep digits only
+  if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.substring(2); // Strip leading '91' country code
+  } else if (digits.length > 10) {
+    digits = digits.slice(-10); // Take last 10 digits
+  }
+  return /^[6-9]\d{9}$/.test(digits) ? digits : '9876543210';
+};
+
 // Helper: Authenticate with Live Shiprocket API
 const getShiprocketToken = async () => {
   if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
@@ -58,7 +70,7 @@ const checkServiceability = async (req, res) => {
   }
 };
 
-// 2. AUTOMATED LIVE ORDER CREATION
+// 2. AUTOMATED LIVE ORDER CREATION (WITH PHONE SANITIZER)
 const createShiprocketOrder = async (req, res) => {
   const { orderId, orderItems, shippingAddress, totalPrice, user, paymentMethod } = req.body;
 
@@ -69,6 +81,9 @@ const createShiprocketOrder = async (req, res) => {
     const nameParts = fullName.trim().split(' ');
     const firstName = nameParts[0] || 'Customer';
     const lastName = nameParts.slice(1).join(' ') || '';
+
+    // Clean phone number before sending to Shiprocket
+    const phoneToUse = sanitizePhone(shippingAddress?.phone || user?.phone);
 
     const payload = {
       order_id: String(orderId).substring(0, 20),
@@ -82,7 +97,7 @@ const createShiprocketOrder = async (req, res) => {
       billing_state: shippingAddress?.state || 'Bihar',
       billing_country: shippingAddress?.country || 'India',
       billing_email: user?.email || 'customer@royaltailors.net',
-      billing_phone: shippingAddress?.phone || user?.phone || '9999999999',
+      billing_phone: phoneToUse,
       shipping_is_billing: true,
       order_items: (orderItems || []).map((item) => ({
         name: item.name,
@@ -206,7 +221,7 @@ const trackShipment = async (req, res) => {
 
     res.json({ success: true, tracking: data });
   } catch (error) {
-    console.error('Shiprocket Tracking Error:', error.response?.data || error.message);
+    console.error('Shiprocket Tracking Error:', error);
     res.status(500).json({ success: false, message: 'Failed to retrieve tracking information.' });
   }
 };
@@ -252,7 +267,7 @@ const createReturnOrder = async (req, res) => {
       pickup_state: shippingAddress?.state || 'Bihar',
       pickup_country: 'India',
       pickup_email: user?.email || 'customer@royaltailors.net',
-      pickup_phone: shippingAddress?.phone || user?.phone || '9999999999',
+      pickup_phone: sanitizePhone(shippingAddress?.phone || user?.phone),
       order_items: (orderItems || []).map((item) => ({
         name: item.name,
         sku: String(item.product || item._id).substring(0, 10),
@@ -290,7 +305,6 @@ const shiprocketWebhook = async (req, res) => {
       if (current_status) updateFields.status = current_status;
       if (awb) updateFields.awbCode = awb;
 
-      // 🚀 FIXED: Automatically set isPaid to true when COD parcel is delivered
       if (current_status === 'DELIVERED' || current_status === 'Delivered') {
         updateFields.isDelivered = true;
         updateFields.deliveredAt = Date.now();
