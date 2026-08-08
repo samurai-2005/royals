@@ -21,7 +21,9 @@ import {
   FiCheck,
   FiUpload,
   FiSend,
-  FiSearch
+  FiSearch,
+  FiClock,
+  FiMapPin
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -29,7 +31,6 @@ const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'finance';
 
-  // Auth & Core States
   const [authenticating, setAuthenticating] = useState(true);
   const [adminUser, setAdminUser] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -38,11 +39,9 @@ const AdminDashboard = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
 
-  // Action Loading & Modal States
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [trackingModalData, setTrackingModalData] = useState(null);
 
-  // Product Modal Form State
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [prodName, setProdName] = useState('');
@@ -54,16 +53,13 @@ const AdminDashboard = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
 
-  // Inventory Inline Edit State
   const [editingStockId, setEditingStockId] = useState(null);
   const [newStockVal, setNewStockVal] = useState('');
 
-  // Tab switching helper
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
   };
 
-  // Helper: Format full Image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
@@ -71,14 +67,12 @@ const AdminDashboard = () => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Get Auth Header Helper
   const getAuthHeader = useCallback(() => {
     const userInfoString = localStorage.getItem('userInfo');
     const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
     return userInfo?.token ? { headers: { Authorization: `Bearer ${userInfo.token}` } } : null;
   }, []);
 
-  // Fetch Dashboard Data
   const fetchDashboardData = useCallback(async () => {
     const config = getAuthHeader();
     if (!config) return;
@@ -116,7 +110,6 @@ const AdminDashboard = () => {
     }
   }, [getAuthHeader]);
 
-  // Verify Admin Handshake
   useEffect(() => {
     const verifyAdmin = async () => {
       const config = getAuthHeader();
@@ -165,6 +158,13 @@ const AdminDashboard = () => {
         config
       );
 
+      // Instant state update for responsive UI
+      setOrders(prev => prev.map(o => o._id === order._id ? {
+        ...o,
+        shiprocketOrderId: String(data.shiprocket_order_id),
+        shipmentId: String(data.shipment_id)
+      } : o));
+
       alert(`✅ Successfully pushed to Shiprocket! Order ID: ${data.shiprocket_order_id}`);
       fetchDashboardData();
     } catch (err) {
@@ -174,8 +174,8 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: GENERATE AWB (ASSIGN COURIER)
-  const handleGenerateAWB = async (shipmentId) => {
+  // 🚀 LOGISTICS: GENERATE AWB
+  const handleGenerateAWB = async (shipmentId, orderId) => {
     if (!shipmentId) {
       alert('Order must be pushed to Shiprocket first.');
       return;
@@ -192,7 +192,16 @@ const AdminDashboard = () => {
         config
       );
 
-      const awb = data.response?.awb_code || data.response?.data?.awb_code || 'Assigned';
+      const awb = data.awb_code || data.response?.awb_code || 'Assigned';
+      const courier = data.courier_name || 'Assigned Courier';
+
+      setOrders(prev => prev.map(o => o._id === orderId ? {
+        ...o,
+        awbCode: awb,
+        courierName: courier,
+        status: 'In Transit'
+      } : o));
+
       alert(`✅ Courier AWB Code Generated: ${awb}`);
       fetchDashboardData();
     } catch (err) {
@@ -248,9 +257,9 @@ const AdminDashboard = () => {
         `${import.meta.env.VITE_BACKEND_URL}/api/logistics/track/${awbCode}`,
         config
       );
-      setTrackingModalData(data.tracking);
+      setTrackingModalData({ awb: awbCode, raw: data.tracking });
     } catch (err) {
-      console.error('Tracking error:', err); // 👈 Logs 'err' to clear ESLint warning
+      console.error('Tracking error:', err);
       alert('Could not retrieve live tracking updates.');
     } finally {
       setActionLoadingId(null);
@@ -275,7 +284,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📸 BACKEND FILE UPLOAD
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -309,7 +317,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📦 PRODUCT: CREATE / EDIT HANDLER
   const handleOpenProductModal = (prod = null) => {
     if (prod) {
       setEditingProduct(prod);
@@ -382,7 +389,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📊 INVENTORY: SAVE STOCK
   const handleSaveStock = async (productId) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -400,7 +406,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📑 ORDERS: FULFILLMENT STATUS UPDATE
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -417,7 +422,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // FINANCIAL SUMMARY CALCULATIONS
   const safeOrders = Array.isArray(orders) ? orders : [];
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
   const revenueReceived = safeOrders.filter(o => o.isPaid).reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
@@ -467,7 +471,6 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        {/* 6 ADMIN CONTROL SECTION TABS */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-zinc-800/80">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -630,6 +633,7 @@ const AdminDashboard = () => {
                             <div className="space-y-0.5">
                               <span className="text-emerald-400 block font-bold">SR: {o.shiprocketOrderId}</span>
                               {o.shipmentId && <span className="text-zinc-400 block text-[10px]">Shipment: {o.shipmentId}</span>}
+                              {o.courierName && <span className="text-amber-400 block text-[10px] font-sans font-bold">{o.courierName}</span>}
                             </div>
                           ) : (
                             <span className="text-amber-500/80 italic font-semibold">Not Synced</span>
@@ -653,7 +657,6 @@ const AdminDashboard = () => {
                         </td>
 
                         <td className="p-3.5 text-right space-x-2">
-                          {/* 1. Push to Shiprocket */}
                           {!hasShiprocketOrder && (
                             <button
                               onClick={() => handlePushToShiprocket(o)}
@@ -664,10 +667,9 @@ const AdminDashboard = () => {
                             </button>
                           )}
 
-                          {/* 2. Generate AWB */}
                           {hasShiprocketOrder && !hasAWB && (
                             <button
-                              onClick={() => handleGenerateAWB(o.shipmentId)}
+                              onClick={() => handleGenerateAWB(o.shipmentId, o._id)}
                               disabled={actionLoadingId === `awb-${o.shipmentId}`}
                               className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
                             >
@@ -675,7 +677,6 @@ const AdminDashboard = () => {
                             </button>
                           )}
 
-                          {/* 3. Print Label */}
                           {hasShiprocketOrder && (
                             <button
                               onClick={() => handleGenerateLabel(o.shipmentId)}
@@ -686,7 +687,6 @@ const AdminDashboard = () => {
                             </button>
                           )}
 
-                          {/* 4. Live Track */}
                           {hasAWB && (
                             <button
                               onClick={() => handleTrackShipment(o.awbCode)}
@@ -961,26 +961,45 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 🔍 MODAL: LIVE TRACKING DISPLAY */}
+      {/* 🔍 VISUAL TRACKING TIMELINE MODAL */}
       {trackingModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 relative">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <FiTruck className="text-amber-400" /> Real-time Courier Status
+                <FiTruck className="text-amber-400" /> Live Shiprocket Tracking (AWB: {trackingModalData.awb})
               </h3>
               <button onClick={() => setTrackingModalData(null)} className="text-zinc-400 hover:text-white">
                 <FiX size={18} />
               </button>
             </div>
 
-            <pre className="bg-zinc-950 p-4 rounded-xl text-xs overflow-x-auto text-zinc-300 max-h-60">
-              {JSON.stringify(trackingModalData, null, 2)}
-            </pre>
+            {trackingModalData.raw?.tracking_data?.shipment_track_activities?.length > 0 ? (
+              <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                {trackingModalData.raw.tracking_data.shipment_track_activities.map((act, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-xs border-l-2 border-amber-500 pl-3 py-1">
+                    <div className="flex-1 space-y-0.5">
+                      <p className="font-bold text-white">{act.activity || act.location}</p>
+                      <p className="text-[11px] text-zinc-400 flex items-center gap-1">
+                        <FiMapPin size={12} /> {act.location || 'In Transit'}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 flex items-center gap-1">
+                        <FiClock size={10} /> {act.date}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-zinc-950 p-4 rounded-xl text-xs font-mono text-zinc-300 max-h-60 overflow-x-auto">
+                <p className="text-amber-400 font-bold mb-2">Live Raw Response from Shiprocket:</p>
+                <pre>{JSON.stringify(trackingModalData.raw, null, 2)}</pre>
+              </div>
+            )}
 
             <button
               onClick={() => setTrackingModalData(null)}
-              className="w-full bg-white text-black font-bold py-2 rounded-xl text-xs"
+              className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs"
             >
               Close Window
             </button>

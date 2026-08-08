@@ -5,19 +5,17 @@ const Order = require('../models/Order');
 let cachedToken = null;
 let tokenExpiry = null;
 
-// Helper: Sanitize & format phone numbers to strict 10-digit Indian mobile format
 const sanitizePhone = (phoneStr) => {
   if (!phoneStr) return '9876543210';
-  let digits = String(phoneStr).replace(/\D/g, ''); // Keep digits only
+  let digits = String(phoneStr).replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) {
-    digits = digits.substring(2); // Strip leading '91' country code
+    digits = digits.substring(2);
   } else if (digits.length > 10) {
-    digits = digits.slice(-10); // Take last 10 digits
+    digits = digits.slice(-10);
   }
   return /^[6-9]\d{9}$/.test(digits) ? digits : '9876543210';
 };
 
-// Helper: Authenticate with Live Shiprocket API
 const getShiprocketToken = async () => {
   if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
     return cachedToken;
@@ -39,7 +37,6 @@ const getShiprocketToken = async () => {
   }
 };
 
-// 1. DYNAMIC SHIPPING RATES & PINCODE CHECK
 const checkServiceability = async (req, res) => {
   const { delivery_postcode, weight = 0.5, cod = 1 } = req.body;
 
@@ -53,7 +50,7 @@ const checkServiceability = async (req, res) => {
     const { data } = await axios.get('https://apiv2.shiprocket.in/v1/external/courier/serviceability', {
       headers: { Authorization: `Bearer ${token}` },
       params: {
-        pickup_postcode: 801503, // Danapur Cantt, Patna Warehouse PIN
+        pickup_postcode: 801503,
         delivery_postcode,
         weight,
         cod: cod ? 1 : 0
@@ -70,7 +67,6 @@ const checkServiceability = async (req, res) => {
   }
 };
 
-// 2. AUTOMATED LIVE ORDER CREATION (WITH PHONE SANITIZER)
 const createShiprocketOrder = async (req, res) => {
   const { orderId, orderItems, shippingAddress, totalPrice, user, paymentMethod } = req.body;
 
@@ -82,7 +78,6 @@ const createShiprocketOrder = async (req, res) => {
     const firstName = nameParts[0] || 'Customer';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    // Clean phone number before sending to Shiprocket
     const phoneToUse = sanitizePhone(shippingAddress?.phone || user?.phone);
 
     const payload = {
@@ -121,8 +116,8 @@ const createShiprocketOrder = async (req, res) => {
 
     if (orderId && data.order_id) {
       await Order.findByIdAndUpdate(orderId, {
-        shiprocketOrderId: data.order_id,
-        shipmentId: data.shipment_id
+        shiprocketOrderId: String(data.order_id),
+        shipmentId: String(data.shipment_id)
       });
     }
 
@@ -142,7 +137,6 @@ const createShiprocketOrder = async (req, res) => {
   }
 };
 
-// 3. AUTOMATED COURIER ASSIGNMENT (Generate AWB)
 const generateAWB = async (req, res) => {
   const { shipment_id, courier_id } = req.body;
 
@@ -162,8 +156,20 @@ const generateAWB = async (req, res) => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
+    const awbCode = data.response?.data?.awb_code || data.response?.awb_code;
+    const courierName = data.response?.data?.courier_name || data.response?.courier_name || 'Assigned Courier';
+
+    if (shipment_id) {
+      await Order.findOneAndUpdate(
+        { shipmentId: String(shipment_id) },
+        { awbCode, courierName, status: 'In Transit' }
+      );
+    }
+
     res.json({ 
       success: true, 
+      awb_code: awbCode,
+      courier_name: courierName,
       response: data.response?.data || data 
     });
   } catch (error) {
@@ -176,7 +182,6 @@ const generateAWB = async (req, res) => {
   }
 };
 
-// 4. LABEL GENERATION
 const generateLabel = async (req, res) => {
   const { shipment_id } = req.body;
 
@@ -209,7 +214,6 @@ const generateLabel = async (req, res) => {
   }
 };
 
-// 5. REAL-TIME TRACKING VIA AWB
 const trackShipment = async (req, res) => {
   const { awb } = req.params;
 
@@ -226,7 +230,6 @@ const trackShipment = async (req, res) => {
   }
 };
 
-// 6. CANCELLATION API
 const cancelShiprocketOrder = async (req, res) => {
   const { mongoOrderId, shiprocketOrderId } = req.body;
 
@@ -250,7 +253,6 @@ const cancelShiprocketOrder = async (req, res) => {
   }
 };
 
-// 7. RETURN / EXCHANGE API
 const createReturnOrder = async (req, res) => {
   const { orderId, orderItems, shippingAddress, user } = req.body;
 
@@ -292,7 +294,6 @@ const createReturnOrder = async (req, res) => {
   }
 };
 
-// 8. WEBHOOK FOR REAL-TIME TRACKING & AUTOMATED COD PAYMENT FLIP
 const shiprocketWebhook = async (req, res) => {
   try {
     const trackingData = req.body;

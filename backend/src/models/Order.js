@@ -11,9 +11,9 @@ const orderSchema = mongoose.Schema(
       {
         name: { type: String, required: true },
         qty: { type: Number, required: true },
-        image: { type: String, required: true },
+        image: { type: String },
         price: { type: Number, required: true },
-        size: { type: String, required: true },
+        size: { type: String },
         product: {
           type: mongoose.Schema.Types.ObjectId,
           required: true,
@@ -26,11 +26,12 @@ const orderSchema = mongoose.Schema(
       city: { type: String, required: true },
       postalCode: { type: String, required: true },
       state: { type: String, required: true },
+      phone: { type: String }, // 👈 Stores contact phone for courier delivery
     },
     paymentMethod: {
       type: String,
       required: true,
-      default: 'Razorpay', // Placeholder for your future integration
+      default: 'COD',
     },
     paymentResult: {
       id: { type: String },
@@ -45,7 +46,13 @@ const orderSchema = mongoose.Schema(
     paidAt: { type: Date },
     isDelivered: { type: Boolean, required: true, default: false },
     deliveredAt: { type: Date },
-    status: { type: String, required: true, default: 'Processing' } // Processing, Shipped, Out for Delivery, Delivered
+    status: { type: String, required: true, default: 'Processing' },
+
+    // 🚀 SHIPROCKET LOGISTICS FIELDS
+    shiprocketOrderId: { type: String, default: '' },
+    shipmentId: { type: String, default: '' },
+    awbCode: { type: String, default: '' },
+    courierName: { type: String, default: '' },
   },
   {
     timestamps: true,
