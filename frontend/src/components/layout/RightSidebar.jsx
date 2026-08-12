@@ -9,7 +9,6 @@ const RightSidebar = () => {
   const [discountedProducts, setDiscountedProducts] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Helper to safely resolve image URLs (handles http/https links, arrays, & slash formatting)
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
@@ -17,7 +16,6 @@ const RightSidebar = () => {
     return `${baseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Fetch products and filter for active sales
   useEffect(() => {
     const fetchDeals = async () => {
       try {
@@ -31,19 +29,16 @@ const RightSidebar = () => {
     fetchDeals();
   }, []);
 
-  // Slideshow auto-play logic
   useEffect(() => {
     if (discountedProducts.length === 0) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % discountedProducts.length);
-    }, 4000); // Change slide every 4 seconds
+    }, 4000);
     return () => clearInterval(timer);
   }, [discountedProducts]);
 
-  // Calculate Cart totals
   const itemsPrice = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
 
-  // Resolve current active sale product & image URL
   const currentProduct = discountedProducts[currentIndex];
   const rawImg = currentProduct?.images && currentProduct.images.length > 0 
     ? currentProduct.images[0] 

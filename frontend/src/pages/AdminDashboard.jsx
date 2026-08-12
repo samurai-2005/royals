@@ -26,8 +26,8 @@ import {
   FiMapPin,
   FiZap,
   FiTag,
-  FiPercent,
-  FiCalendar
+  FiCalendar,
+  FiImage
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -63,45 +63,39 @@ const AdminDashboard = () => {
   const [newStockVal, setNewStockVal] = useState('');
 
   // ⚡ FLASH SALES & EVENTS STATE
+  const [salesSubTab, setSalesSubTab] = useState('individual'); // 'individual' or 'events'
   const [saleEvents, setSaleEvents] = useState([
     {
       _id: 'sale_1',
       title: 'Monsoon Uniform Blitz',
-      targetCategory: 'School Uniforms',
+      banner: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80',
       discountPercentage: 15,
       startDate: '2026-08-10',
       endDate: '2026-08-20',
-      isActive: true
-    },
-    {
-      _id: 'sale_2',
-      title: 'NCC Boots Flash Clearance',
-      targetCategory: 'Shoes',
-      discountPercentage: 20,
-      startDate: '2026-08-15',
-      endDate: '2026-08-25',
+      selectedProductIds: [],
       isActive: true
     }
   ]);
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleTitle, setSaleTitle] = useState('');
-  const [saleCategory, setSaleCategory] = useState('All Categories');
+  const [saleBanner, setSaleBanner] = useState('');
   const [saleDiscount, setSaleDiscount] = useState('');
   const [saleStartDate, setSaleStartDate] = useState('');
   const [saleEndDate, setSaleEndDate] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [savingSale, setSavingSale] = useState(false);
 
-  // Preset Sub-Section Options
+  // Individual Product Sale Input Buffer State: { productId: newSalePrice }
+  const [individualSaleInputs, setIndividualSaleInputs] = useState({});
+
+  // Streamlined Sub-Section Options (Boots, Lower, Cap, Belt Removed)
   const subGroupOptions = [
     'Shirts',
     'T-Shirts',
     'Pants',
     'Trousers',
     'Shoes',
-    'Boots',
-    'Lower',
-    'Cap',
-    'Belt',
     'Accessories',
     'Unassigned'
   ];
@@ -136,18 +130,22 @@ const AdminDashboard = () => {
         axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`)
       ]);
 
+      const loadedProducts = Array.isArray(productsRes.data) ? productsRes.data : [];
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
-      setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+      setProducts(loadedProducts);
+
+      // Pre-fill sale inputs with existing discount prices
+      const initialSalePrices = {};
+      loadedProducts.forEach(p => {
+        if (p.discountPrice && p.discountPrice > 0) {
+          initialSalePrices[p._id] = p.discountPrice;
+        }
+      });
+      setIndividualSaleInputs(initialSalePrices);
 
       try {
         const usersRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/users`, config);
-        if (Array.isArray(usersRes.data)) {
-          setUsersList(usersRes.data);
-        } else if (usersRes.data && Array.isArray(usersRes.data.users)) {
-          setUsersList(usersRes.data.users);
-        } else {
-          setUsersList([]);
-        }
+        setUsersList(Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.users || []));
       } catch (userErr) {
         console.warn('Users directory note:', userErr.message);
         setUsersList([]);
@@ -159,7 +157,7 @@ const AdminDashboard = () => {
           setSaleEvents(salesRes.data);
         }
       } catch {
-        // Local state fallback
+        // Fallback to local state
       }
 
     } catch (err) {
@@ -235,11 +233,7 @@ const AdminDashboard = () => {
 
   // 🚀 LOGISTICS: GENERATE AWB
   const handleGenerateAWB = async (shipmentId, orderId) => {
-    if (!shipmentId) {
-      alert('Order must be pushed to Shiprocket first.');
-      return;
-    }
-
+    if (!shipmentId) return alert('Order must be pushed to Shiprocket first.');
     const config = getAuthHeader();
     if (!config) return;
 
@@ -272,11 +266,7 @@ const AdminDashboard = () => {
 
   // 🚀 LOGISTICS: PRINT LABEL
   const handleGenerateLabel = async (shipmentId) => {
-    if (!shipmentId) {
-      alert('Order must be pushed to Shiprocket first.');
-      return;
-    }
-
+    if (!shipmentId) return alert('Order must be pushed to Shiprocket first.');
     const config = getAuthHeader();
     if (!config) return;
 
@@ -302,11 +292,7 @@ const AdminDashboard = () => {
 
   // 🚀 LOGISTICS: LIVE TRACK
   const handleTrackShipment = async (awbCode) => {
-    if (!awbCode) {
-      alert('No AWB Code assigned to this order yet.');
-      return;
-    }
-
+    if (!awbCode) return alert('No AWB Code assigned to this order yet.');
     const config = getAuthHeader();
     if (!config) return;
 
@@ -343,36 +329,38 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📸 FILE UPLOAD
-  const handleFileUpload = async (e) => {
+  // 📸 FILE UPLOAD (FOR PRODUCTS & BANNERS)
+  const handleFileUpload = async (e, target = 'product') => {
     const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('image', file);
 
-    setUploadingImage(true);
+    if (target === 'banner') setUploadingBanner(true);
+    else setUploadingImage(true);
+
     try {
       const config = getAuthHeader() || {};
       const { data } = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/upload`,
         formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            ...(config.headers || {})
-          }
-        }
+        { headers: { 'Content-Type': 'multipart/form-data', ...(config.headers || {}) } }
       );
 
       const uploadedPath = typeof data === 'string' ? data : (data.image || data.path || data.url);
       if (uploadedPath) {
-        setProdImages(prev => [...prev, uploadedPath]);
+        if (target === 'banner') {
+          setSaleBanner(uploadedPath);
+        } else {
+          setProdImages(prev => [...prev, uploadedPath]);
+        }
       }
     } catch (err) {
       console.error('File upload error:', err);
       alert(err.response?.data?.message || 'Failed to upload image to server.');
     } finally {
+      setUploadingBanner(false);
       setUploadingImage(false);
     }
   };
@@ -483,18 +471,59 @@ const AdminDashboard = () => {
     }
   };
 
-  // ⚡ FLASH SALES HANDLERS
+  // 🏷️ 1. INDIVIDUAL PRODUCT DISCOUNT SAVE
+  const handleSaveIndividualSale = async (product) => {
+    const saleVal = Number(individualSaleInputs[product._id]);
+    const config = getAuthHeader();
+    if (!config) return;
+
+    if (!saleVal || saleVal <= 0 || saleVal >= product.price) {
+      // Reset discount
+      try {
+        const { data } = await axios.put(
+          `${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}`,
+          { discountPrice: 0, discountPercentage: 0 },
+          config
+        );
+        setProducts(prev => prev.map(p => p._id === product._id ? data : p));
+        alert(`Cleared sale pricing for ${product.name}.`);
+      } catch (err) {
+        alert(err.response?.data?.message || 'Failed to update sale price.');
+      }
+      return;
+    }
+
+    const calculatedPct = Math.round(((product.price - saleVal) / product.price) * 100);
+
+    try {
+      const { data } = await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}`,
+        { discountPrice: saleVal, discountPercentage: calculatedPct },
+        config
+      );
+
+      setProducts(prev => prev.map(p => p._id === product._id ? data : p));
+      alert(`✅ Updated ${product.name}! Sale Price: Rs ${saleVal} (${calculatedPct}% OFF)`);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update sale price.');
+    }
+  };
+
+  // ⚡ 2. SALE EVENT CREATION & PRODUCT DISCOUNTS
   const handleSaveSaleEvent = async (e) => {
     e.preventDefault();
     setSavingSale(true);
 
+    const eventDiscountPct = Number(saleDiscount);
+
     const newSale = {
       _id: `sale_${Date.now()}`,
       title: saleTitle,
-      targetCategory: saleCategory,
-      discountPercentage: Number(saleDiscount),
+      banner: saleBanner || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80',
+      discountPercentage: eventDiscountPct,
       startDate: saleStartDate || new Date().toISOString().split('T')[0],
       endDate: saleEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      selectedProductIds,
       isActive: true
     };
 
@@ -502,39 +531,60 @@ const AdminDashboard = () => {
       const config = getAuthHeader();
       if (config) {
         await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/sales`, newSale, config);
+
+        // Batch update selected products with event discount
+        for (const pid of selectedProductIds) {
+          const targetProd = products.find(p => p._id === pid);
+          if (targetProd) {
+            const calculatedPrice = Math.round(targetProd.price - (targetProd.price * eventDiscountPct) / 100);
+            await axios.put(
+              `${import.meta.env.VITE_BACKEND_URL}/api/products/${pid}`,
+              { discountPrice: calculatedPrice, discountPercentage: eventDiscountPct },
+              config
+            );
+          }
+        }
       }
     } catch {
-      // Local fallback state
+      // Local fallback
     }
 
     setSaleEvents(prev => [newSale, ...prev]);
 
-    const updatedProducts = products.map(p => {
-      if (saleCategory === 'All Categories' || p.mainGroup === saleCategory || p.subGroup === saleCategory) {
-        const discountPrice = Math.round(p.price - (p.price * Number(saleDiscount)) / 100);
-        return { ...p, discountPercentage: Number(saleDiscount), discountPrice };
+    // Local state update for responsive UI
+    setProducts(prev => prev.map(p => {
+      if (selectedProductIds.includes(p._id)) {
+        const calculatedPrice = Math.round(p.price - (p.price * eventDiscountPct) / 100);
+        return { ...p, discountPrice: calculatedPrice, discountPercentage: eventDiscountPct };
       }
       return p;
-    });
+    }));
 
-    setProducts(updatedProducts);
     setSaleModalOpen(false);
     setSaleTitle('');
+    setSaleBanner('');
     setSaleDiscount('');
     setSaleStartDate('');
     setSaleEndDate('');
+    setSelectedProductIds([]);
     setSavingSale(false);
 
-    alert(`⚡ Flash Sale "${saleTitle}" launched! ${saleDiscount}% discount applied to ${saleCategory}.`);
+    alert(`⚡ Flash Event "${saleTitle}" created and applied to ${selectedProductIds.length} products!`);
   };
 
-  const handleToggleSaleStatus = async (saleId) => {
+  const handleToggleSaleStatus = (saleId) => {
     setSaleEvents(prev => prev.map(s => s._id === saleId ? { ...s, isActive: !s.isActive } : s));
   };
 
   const handleDeleteSaleEvent = (saleId) => {
-    if (!window.confirm('Are you sure you want to end and delete this sale event?')) return;
+    if (!window.confirm('Are you sure you want to delete this sale event?')) return;
     setSaleEvents(prev => prev.filter(s => s._id !== saleId));
+  };
+
+  const toggleSelectProductForEvent = (productId) => {
+    setSelectedProductIds(prev =>
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
   };
 
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -557,7 +607,7 @@ const AdminDashboard = () => {
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
-    { id: 'sales', label: `Flash Sales (${saleEvents.length})`, icon: FiZap },
+    { id: 'sales', label: `Flash Sales (${products.filter(p => p.discountPercentage > 0).length})`, icon: FiZap },
     { id: 'users', label: `Users (${usersList.length})`, icon: FiUsers },
   ];
 
@@ -1024,106 +1074,162 @@ const AdminDashboard = () => {
       {/* ⚡ 6. FLASH SALES & EVENTS SECTION */}
       {activeTab === 'sales' && (
         <div className="space-y-6 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
-              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Active Flash Sales <FiZap className="text-amber-400" size={18} />
-              </span>
-              <p className="text-3xl font-black text-white">{saleEvents.filter(s => s.isActive).length}</p>
-              <p className="text-[11px] text-zinc-500">Live markdown campaigns on storefront</p>
-            </div>
+          {/* Sub-Tab Switcher */}
+          <div className="flex items-center bg-[#18181b] border border-zinc-800 p-1.5 rounded-2xl w-fit gap-2">
+            <button
+              onClick={() => setSalesSubTab('individual')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                salesSubTab === 'individual'
+                  ? 'bg-amber-500 text-black font-black shadow-lg'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <FiTag size={14} /> Individual Item Discounts
+            </button>
 
-            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
-              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Target Categories <FiTag className="text-emerald-400" size={18} />
-              </span>
-              <p className="text-3xl font-black text-emerald-400">
-                {new Set(saleEvents.map(s => s.targetCategory)).size}
-              </p>
-              <p className="text-[11px] text-zinc-500">Uniform & shoe categories covered</p>
-            </div>
-
-            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
-              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
-                Max Flash Discount <FiPercent className="text-amber-400" size={18} />
-              </span>
-              <p className="text-3xl font-black text-amber-400">
-                {saleEvents.length > 0 ? Math.max(...saleEvents.map(s => s.discountPercentage)) : 0}%
-              </p>
-              <p className="text-[11px] text-zinc-500">Highest active discount percentage</p>
-            </div>
+            <button
+              onClick={() => setSalesSubTab('events')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                salesSubTab === 'events'
+                  ? 'bg-amber-500 text-black font-black shadow-lg'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <FiZap size={14} /> Sale Events & Campaigns
+            </button>
           </div>
 
-          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+          {/* MODE 1: INDIVIDUAL PRODUCT DISCOUNT MANAGEMENT */}
+          {salesSubTab === 'individual' && (
+            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
               <div>
-                <h2 className="text-base font-black text-white uppercase tracking-wide">Flash Sales & Event Directory</h2>
-                <p className="text-xs text-zinc-400">Launch storewide or category-specific promotional campaigns.</p>
+                <h2 className="text-base font-black text-white uppercase tracking-wide">Individual Item Price Markdown</h2>
+                <p className="text-xs text-zinc-400">
+                  Enter a new sale price for any catalog item. The discount percentage will auto-calculate and display across the store.
+                </p>
               </div>
 
-              <button
-                onClick={() => setSaleModalOpen(true)}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
-              >
-                <FiPlus size={16} /> Create Sale Campaign
-              </button>
-            </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-zinc-300">
+                  <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
+                    <tr>
+                      <th className="p-3.5">Product Name</th>
+                      <th className="p-3.5">Category</th>
+                      <th className="p-3.5">Original Price</th>
+                      <th className="p-3.5">New Sale Price (Rs)</th>
+                      <th className="p-3.5">Calculated Discount</th>
+                      <th className="p-3.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/80">
+                    {products.map((p) => {
+                      const inputVal = individualSaleInputs[p._id] !== undefined ? individualSaleInputs[p._id] : (p.discountPrice || '');
+                      const numVal = Number(inputVal);
+                      const hasSale = numVal > 0 && numVal < p.price;
+                      const calculatedPct = hasSale ? Math.round(((p.price - numVal) / p.price) * 100) : 0;
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300">
-                <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
-                  <tr>
-                    <th className="p-3.5">Campaign Title</th>
-                    <th className="p-3.5">Target Section</th>
-                    <th className="p-3.5">Discount Rate</th>
-                    <th className="p-3.5">Campaign Window</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/80">
-                  {saleEvents.map((s) => (
-                    <tr key={s._id} className="hover:bg-zinc-900/50 transition-colors">
-                      <td className="p-3.5 font-bold text-white flex items-center gap-2">
-                        <FiZap className="text-amber-400" size={14} /> {s.title}
-                      </td>
-                      <td className="p-3.5 text-zinc-300">
-                        <span className="bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                          {s.targetCategory}
-                        </span>
-                      </td>
-                      <td className="p-3.5 font-black text-emerald-400">{s.discountPercentage}% OFF</td>
-                      <td className="p-3.5 text-zinc-400 font-mono text-[11px] flex items-center gap-1">
+                      return (
+                        <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
+                          <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{p.name}</td>
+                          <td className="p-3.5 text-zinc-400">{p.mainGroup} / {p.subGroup}</td>
+                          <td className="p-3.5 font-mono text-zinc-300">Rs {p.price}</td>
+                          <td className="p-3.5">
+                            <input
+                              type="number"
+                              placeholder={p.price}
+                              value={inputVal}
+                              onChange={(e) => setIndividualSaleInputs({ ...individualSaleInputs, [p._id]: e.target.value })}
+                              className="w-28 bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none"
+                            />
+                          </td>
+                          <td className="p-3.5">
+                            {hasSale ? (
+                              <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">
+                                {calculatedPct}% OFF
+                              </span>
+                            ) : (
+                              <span className="text-zinc-600 italic">No Discount</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <button
+                              onClick={() => handleSaveIndividualSale(p)}
+                              className="bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Update Price
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* MODE 2: SALE EVENTS MANAGER */}
+          {salesSubTab === 'events' && (
+            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <h2 className="text-base font-black text-white uppercase tracking-wide">Promotional Campaign Events</h2>
+                  <p className="text-xs text-zinc-400">Organize featured sale events with custom banners and select target items.</p>
+                </div>
+
+                <button
+                  onClick={() => setSaleModalOpen(true)}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <FiPlus size={16} /> Create Sale Event
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {saleEvents.map((s) => (
+                  <div key={s._id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden space-y-3 relative group">
+                    <div className="h-32 bg-zinc-950 relative overflow-hidden">
+                      <img src={s.banner} alt={s.title} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">
+                        {s.discountPercentage}% EVENT DISCOUNT
+                      </span>
+                    </div>
+
+                    <div className="p-4 space-y-2">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <FiZap className="text-amber-400" /> {s.title}
+                      </h3>
+                      <p className="text-xs text-zinc-400 flex items-center gap-1 font-mono">
                         <FiCalendar size={12} /> {s.startDate} to {s.endDate}
-                      </td>
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                        }`}>
-                          {s.isActive ? 'Active' : 'Paused'}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right space-x-2">
+                      </p>
+                      <p className="text-xs text-zinc-500 font-semibold">
+                        {s.selectedProductIds?.length || 0} Target Products Linked
+                      </p>
+
+                      <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
                         <button
                           onClick={() => handleToggleSaleStatus(s._id)}
-                          className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer ${
+                            s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'
+                          }`}
                         >
-                          {s.isActive ? 'Pause' : 'Activate'}
+                          {s.isActive ? 'Active Event' : 'Paused'}
                         </button>
+
                         <button
                           onClick={() => handleDeleteSaleEvent(s._id)}
-                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer inline-flex items-center"
-                          title="Delete Event"
+                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
                         >
-                          <FiTrash2 size={13} />
+                          <FiTrash2 size={14} />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1219,58 +1325,57 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            <button
-              onClick={() => setTrackingModalData(null)}
-              className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs"
-            >
+            <button onClick={() => setTrackingModalData(null)} className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs">
               Close Window
             </button>
           </div>
         </div>
       )}
 
-      {/* ⚡ MODAL: CREATE FLASH SALE EVENT */}
+      {/* ⚡ MODAL: CREATE FLASH SALE EVENT WITH PRODUCT SELECTOR */}
       {saleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onClick={() => setSaleModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
               <FiX size={20} />
             </button>
 
             <h3 className="text-lg font-black text-white flex items-center gap-2">
-              <FiZap className="text-amber-400" /> Launch New Flash Sale Campaign
+              <FiZap className="text-amber-400" /> Launch New Flash Sale Event
             </h3>
 
             <form onSubmit={handleSaveSaleEvent} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Campaign Title</label>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Event Name</label>
                 <input
                   type="text"
                   required
                   value={saleTitle}
                   onChange={(e) => setSaleTitle(e.target.value)}
-                  placeholder="e.g. Back-To-School Uniform Blitz"
+                  placeholder="e.g. Independence Day Uniform Festival"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Target Category</label>
-                  <select
-                    value={saleCategory}
-                    onChange={(e) => setSaleCategory(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="All Categories">All Categories</option>
-                    <option value="School Uniforms">School Uniforms</option>
-                    <option value="NCC">NCC Uniforms</option>
-                    <option value="Security Guard">Security Guard</option>
-                    <option value="Shoes">Shoes</option>
-                    <option value="Accessories">Accessories</option>
-                  </select>
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Event Banner Picture</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={saleBanner}
+                    onChange={(e) => setSaleBanner(e.target.value)}
+                    placeholder="Image URL or upload banner"
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
+                  <label className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 px-3.5 py-3 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1">
+                    {uploadingBanner ? <FiRefreshCw className="animate-spin" size={14} /> : <FiImage size={14} />}
+                    <span>Upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} disabled={uploadingBanner} className="hidden" />
+                  </label>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Discount Rate (%)</label>
                   <input
@@ -1280,13 +1385,11 @@ const AdminDashboard = () => {
                     max="90"
                     value={saleDiscount}
                     onChange={(e) => setSaleDiscount(e.target.value)}
-                    placeholder="e.g. 15"
+                    placeholder="20"
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Start Date</label>
                   <input
@@ -1310,12 +1413,36 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* TARGET PRODUCTS MULTI-SELECT CHECKLIST */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                  Select Participating Products ({selectedProductIds.length} Selected)
+                </label>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
+                  {products.map((p) => {
+                    const isSelected = selectedProductIds.includes(p._id);
+                    return (
+                      <div
+                        key={p._id}
+                        onClick={() => toggleSelectProductForEvent(p._id)}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer text-xs ${
+                          isSelected ? 'bg-amber-950/60 border-amber-500/80 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        <span className="font-bold">{p.name} ({p.mainGroup})</span>
+                        <span className="font-mono">Rs {p.price}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={savingSale}
                 className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2 disabled:opacity-50"
               >
-                {savingSale ? 'Launching Campaign...' : 'Launch Flash Sale Campaign'}
+                {savingSale ? 'Launching Event...' : 'Launch Sale Event'}
               </button>
             </form>
           </div>
@@ -1431,7 +1558,7 @@ const AdminDashboard = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleFileUpload}
+                      onChange={(e) => handleFileUpload(e, 'product')}
                       disabled={uploadingImage}
                       className="hidden"
                     />
