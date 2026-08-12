@@ -53,7 +53,7 @@ const AdminDashboard = () => {
   const [prodPrice, setProdPrice] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodMainGroup, setProdMainGroup] = useState('School Uniforms');
-  const [prodSubGroup, setProdSubGroup] = useState('Shoes');
+  const [prodSubGroup, setProdSubGroup] = useState('Shirts');
   const [prodImages, setProdImages] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
@@ -90,6 +90,21 @@ const AdminDashboard = () => {
   const [saleStartDate, setSaleStartDate] = useState('');
   const [saleEndDate, setSaleEndDate] = useState('');
   const [savingSale, setSavingSale] = useState(false);
+
+  // Preset Sub-Section Options
+  const subGroupOptions = [
+    'Shirts',
+    'T-Shirts',
+    'Pants',
+    'Trousers',
+    'Shoes',
+    'Boots',
+    'Lower',
+    'Cap',
+    'Belt',
+    'Accessories',
+    'Unassigned'
+  ];
 
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
@@ -370,7 +385,7 @@ const AdminDashboard = () => {
       setProdPrice(prod.price);
       setProdDesc(prod.description);
       setProdMainGroup(prod.mainGroup);
-      setProdSubGroup(prod.subGroup || 'Shoes');
+      setProdSubGroup(prod.subGroup || 'Shirts');
       
       const existingImgs = Array.isArray(prod.images) && prod.images.length > 0 
         ? prod.images 
@@ -382,7 +397,7 @@ const AdminDashboard = () => {
       setProdPrice('');
       setProdDesc('');
       setProdMainGroup('School Uniforms');
-      setProdSubGroup('Shoes');
+      setProdSubGroup('Shirts');
       setProdImages([]);
     }
     setProductModalOpen(true);
@@ -1251,7 +1266,7 @@ const AdminDashboard = () => {
                     <option value="School Uniforms">School Uniforms</option>
                     <option value="NCC">NCC Uniforms</option>
                     <option value="Security Guard">Security Guard</option>
-                    <option value="Shoes">Shoes & Footwear</option>
+                    <option value="Shoes">Shoes</option>
                     <option value="Accessories">Accessories</option>
                   </select>
                 </div>
@@ -1360,23 +1375,17 @@ const AdminDashboard = () => {
 
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Sub Section</label>
-                <input
-                  type="text"
-                  list="subgroup-options"
+                <select
                   value={prodSubGroup}
                   onChange={(e) => setProdSubGroup(e.target.value)}
-                  placeholder="e.g. Shoes, Boots, Shirt, Trousers, Cap"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
-                />
-                <datalist id="subgroup-options">
-                  <option value="Shoes" />
-                  <option value="Boots" />
-                  <option value="Shirt" />
-                  <option value="Trousers" />
-                  <option value="Lower" />
-                  <option value="Cap" />
-                  <option value="Belt" />
-                </datalist>
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  {subGroupOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
