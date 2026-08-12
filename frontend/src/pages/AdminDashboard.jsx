@@ -62,20 +62,9 @@ const AdminDashboard = () => {
   const [editingStockId, setEditingStockId] = useState(null);
   const [newStockVal, setNewStockVal] = useState('');
 
-  // ⚡ FLASH SALES & EVENTS STATE
+  // ⚡ FLASH SALES & EVENTS STATE (Initialized to empty array)
   const [salesSubTab, setSalesSubTab] = useState('individual'); // 'individual' or 'events'
-  const [saleEvents, setSaleEvents] = useState([
-    {
-      _id: 'sale_1',
-      title: 'Monsoon Uniform Blitz',
-      banner: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80',
-      discountPercentage: 15,
-      startDate: '2026-08-10',
-      endDate: '2026-08-20',
-      selectedProductIds: [],
-      isActive: true
-    }
-  ]);
+  const [saleEvents, setSaleEvents] = useState([]);
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleTitle, setSaleTitle] = useState('');
   const [saleBanner, setSaleBanner] = useState('');
@@ -89,7 +78,6 @@ const AdminDashboard = () => {
   // Individual Product Sale Input Buffer State: { productId: newSalePrice }
   const [individualSaleInputs, setIndividualSaleInputs] = useState({});
 
-  // Streamlined Sub-Section Options (Boots, Lower, Cap, Belt Removed)
   const subGroupOptions = [
     'Shirts',
     'T-Shirts',
@@ -134,7 +122,6 @@ const AdminDashboard = () => {
       setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
       setProducts(loadedProducts);
 
-      // Pre-fill sale inputs with existing discount prices
       const initialSalePrices = {};
       loadedProducts.forEach(p => {
         if (p.discountPrice && p.discountPrice > 0) {
@@ -153,11 +140,11 @@ const AdminDashboard = () => {
 
       try {
         const salesRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/sales`);
-        if (Array.isArray(salesRes.data) && salesRes.data.length > 0) {
+        if (Array.isArray(salesRes.data)) {
           setSaleEvents(salesRes.data);
         }
       } catch {
-        // Fallback to local state
+        setSaleEvents([]);
       }
 
     } catch (err) {
@@ -329,7 +316,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📸 FILE UPLOAD (FOR PRODUCTS & BANNERS)
+  // 📸 FILE UPLOAD
   const handleFileUpload = async (e, target = 'product') => {
     const file = e.target.files[0];
     if (!file) return;
@@ -471,14 +458,13 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🏷️ 1. INDIVIDUAL PRODUCT DISCOUNT SAVE
+  // 🏷️ INDIVIDUAL PRODUCT DISCOUNT SAVE
   const handleSaveIndividualSale = async (product) => {
     const saleVal = Number(individualSaleInputs[product._id]);
     const config = getAuthHeader();
     if (!config) return;
 
     if (!saleVal || saleVal <= 0 || saleVal >= product.price) {
-      // Reset discount
       try {
         const { data } = await axios.put(
           `${import.meta.env.VITE_BACKEND_URL}/api/products/${product._id}`,
@@ -509,7 +495,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // ⚡ 2. SALE EVENT CREATION & PRODUCT DISCOUNTS
+  // ⚡ SALE EVENT CREATION & PERSISTENT DELETION
   const handleSaveSaleEvent = async (e) => {
     e.preventDefault();
     setSavingSale(true);
@@ -532,7 +518,6 @@ const AdminDashboard = () => {
       if (config) {
         await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/sales`, newSale, config);
 
-        // Batch update selected products with event discount
         for (const pid of selectedProductIds) {
           const targetProd = products.find(p => p._id === pid);
           if (targetProd) {
@@ -551,7 +536,6 @@ const AdminDashboard = () => {
 
     setSaleEvents(prev => [newSale, ...prev]);
 
-    // Local state update for responsive UI
     setProducts(prev => prev.map(p => {
       if (selectedProductIds.includes(p._id)) {
         const calculatedPrice = Math.round(p.price - (p.price * eventDiscountPct) / 100);
@@ -569,15 +553,27 @@ const AdminDashboard = () => {
     setSelectedProductIds([]);
     setSavingSale(false);
 
-    alert(`⚡ Flash Event "${saleTitle}" created and applied to ${selectedProductIds.length} products!`);
+    alert(`⚡ Flash Event "${saleTitle}" created successfully!`);
   };
 
   const handleToggleSaleStatus = (saleId) => {
     setSaleEvents(prev => prev.map(s => s._id === saleId ? { ...s, isActive: !s.isActive } : s));
   };
 
-  const handleDeleteSaleEvent = (saleId) => {
-    if (!window.confirm('Are you sure you want to delete this sale event?')) return;
+  // 🗑️ PERMANENT API DELETE FOR SALE EVENTS
+  const handleDeleteSaleEvent = async (saleId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this sale event?')) return;
+    const config = getAuthHeader();
+
+    try {
+      if (config) {
+        await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/sales/${saleId}`, config);
+      }
+    } catch (err) {
+      console.warn('Backend sale event deletion note:', err.message);
+    }
+
+    // Immediately purge from state so it cannot re-render
     setSaleEvents(prev => prev.filter(s => s._id !== saleId));
   };
 
@@ -607,7 +603,7 @@ const AdminDashboard = () => {
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
-    { id: 'sales', label: `Flash Sales (${products.filter(p => p.discountPercentage > 0).length})`, icon: FiZap },
+    { id: 'sales', label: `Flash Sales (${saleEvents.length})`, icon: FiZap },
     { id: 'users', label: `Users (${usersList.length})`, icon: FiUsers },
   ];
 
@@ -1074,7 +1070,6 @@ const AdminDashboard = () => {
       {/* ⚡ 6. FLASH SALES & EVENTS SECTION */}
       {activeTab === 'sales' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Sub-Tab Switcher */}
           <div className="flex items-center bg-[#18181b] border border-zinc-800 p-1.5 rounded-2xl w-fit gap-2">
             <button
               onClick={() => setSalesSubTab('individual')}
@@ -1185,49 +1180,55 @@ const AdminDashboard = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {saleEvents.map((s) => (
-                  <div key={s._id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden space-y-3 relative group">
-                    <div className="h-32 bg-zinc-950 relative overflow-hidden">
-                      <img src={s.banner} alt={s.title} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                      <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">
-                        {s.discountPercentage}% EVENT DISCOUNT
-                      </span>
-                    </div>
+              {saleEvents.length === 0 ? (
+                <div className="p-8 border-2 border-dashed border-zinc-800 rounded-xl text-center text-zinc-500 text-xs">
+                  No active sale events right now. Click "Create Sale Event" to start a campaign.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {saleEvents.map((s) => (
+                    <div key={s._id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden space-y-3 relative group">
+                      <div className="h-32 bg-zinc-950 relative overflow-hidden">
+                        <img src={s.banner} alt={s.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">
+                          {s.discountPercentage}% EVENT DISCOUNT
+                        </span>
+                      </div>
 
-                    <div className="p-4 space-y-2">
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <FiZap className="text-amber-400" /> {s.title}
-                      </h3>
-                      <p className="text-xs text-zinc-400 flex items-center gap-1 font-mono">
-                        <FiCalendar size={12} /> {s.startDate} to {s.endDate}
-                      </p>
-                      <p className="text-xs text-zinc-500 font-semibold">
-                        {s.selectedProductIds?.length || 0} Target Products Linked
-                      </p>
+                      <div className="p-4 space-y-2">
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                          <FiZap className="text-amber-400" /> {s.title}
+                        </h3>
+                        <p className="text-xs text-zinc-400 flex items-center gap-1 font-mono">
+                          <FiCalendar size={12} /> {s.startDate} to {s.endDate}
+                        </p>
+                        <p className="text-xs text-zinc-500 font-semibold">
+                          {s.selectedProductIds?.length || 0} Target Products Linked
+                        </p>
 
-                      <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
-                        <button
-                          onClick={() => handleToggleSaleStatus(s._id)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer ${
-                            s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'
-                          }`}
-                        >
-                          {s.isActive ? 'Active Event' : 'Paused'}
-                        </button>
+                        <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
+                          <button
+                            onClick={() => handleToggleSaleStatus(s._id)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer ${
+                              s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'
+                            }`}
+                          >
+                            {s.isActive ? 'Active Event' : 'Paused'}
+                          </button>
 
-                        <button
-                          onClick={() => handleDeleteSaleEvent(s._id)}
-                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <FiTrash2 size={14} />
-                        </button>
+                          <button
+                            onClick={() => handleDeleteSaleEvent(s._id)}
+                            className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1413,7 +1414,6 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* TARGET PRODUCTS MULTI-SELECT CHECKLIST */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                   Select Participating Products ({selectedProductIds.length} Selected)

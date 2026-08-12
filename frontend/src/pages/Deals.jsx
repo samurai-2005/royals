@@ -6,17 +6,7 @@ import { FiTag, FiShoppingBag, FiZap, FiCalendar } from 'react-icons/fi';
 const Deals = () => {
   const [activeTab, setActiveTab] = useState('events'); // 'events' or 'individual'
   const [deals, setDeals] = useState([]);
-  const [saleEvents, setSaleEvents] = useState([
-    {
-      _id: 'sale_1',
-      title: 'Monsoon Uniform Blitz',
-      banner: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80',
-      discountPercentage: 15,
-      startDate: '2026-08-10',
-      endDate: '2026-08-20',
-      isActive: true
-    }
-  ]);
+  const [saleEvents, setSaleEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getImageUrl = (imagePath) => {
@@ -37,7 +27,7 @@ const Deals = () => {
         const discounted = (productsRes.data || []).filter(p => p.discountPercentage > 0);
         setDeals(discounted);
 
-        if (Array.isArray(salesRes.data) && salesRes.data.length > 0) {
+        if (Array.isArray(salesRes.data)) {
           setSaleEvents(salesRes.data.filter(s => s.isActive));
         }
       } catch (error) {
