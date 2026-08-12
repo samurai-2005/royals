@@ -21,6 +21,10 @@ const ProductDetail = () => {
   const [subscribing, setSubscribing] = useState(false);
   const [notifySuccess, setNotifySuccess] = useState(false);
 
+  // Available Sizes Arrays
+  const shoeSizes = ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'];
+  const clothingSizes = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
+
   const getImageUrl = (imagePath) => {
     if (!imagePath) return 'https://via.placeholder.com/500x500/18181b/ffffff?text=No+Image';
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
@@ -35,6 +39,18 @@ const ProductDetail = () => {
       try {
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
         setProduct(data);
+
+        // Determine category classification on load to set intelligent size defaults
+        const isAcc = data.mainGroup === 'Accessories' || data.subGroup === 'Accessories';
+        const isShoe = data.mainGroup === 'Shoes' || data.subGroup === 'Shoes' || data.name?.toLowerCase().includes('boot') || data.name?.toLowerCase().includes('shoe') || data.name?.toLowerCase().includes('dms');
+
+        if (isAcc) {
+          setSelectedSize('One Size');
+        } else if (isShoe) {
+          setSelectedSize('UK 7');
+        } else {
+          setSelectedSize('M');
+        }
       } catch (error) {
         console.error("Error fetching product details:", error);
       }
@@ -118,7 +134,7 @@ const ProductDetail = () => {
 
   if (!product) {
     return (
-      <div className="flex justify-center items-center h-96 text-zinc-500">
+      <div className="flex justify-center items-center h-96 text-zinc-500 font-bold">
         Loading Product Details...
       </div>
     );
@@ -126,6 +142,15 @@ const ProductDetail = () => {
 
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
   const isOutOfStock = product.countInStock !== undefined ? product.countInStock <= 0 : !product.inStock;
+
+  // Detect product categories
+  const isAccessories = product.mainGroup === 'Accessories' || product.subGroup === 'Accessories';
+  const isShoes = product.mainGroup === 'Shoes' || product.subGroup === 'Shoes' || product.name?.toLowerCase().includes('boot') || product.name?.toLowerCase().includes('shoe') || product.name?.toLowerCase().includes('dms');
+
+  const handleAddToCartAction = () => {
+    const finalSize = isAccessories ? 'One Size' : selectedSize;
+    addToCart({ ...product, size: finalSize });
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -159,7 +184,7 @@ const ProductDetail = () => {
                 <button
                   key={idx}
                   onClick={() => setSelectedImage(idx)}
-                  className={`w-20 h-20 rounded-xl bg-[#18181b] border-2 overflow-hidden flex-shrink-0 transition-all ${
+                  className={`w-20 h-20 rounded-xl bg-[#18181b] border-2 overflow-hidden flex-shrink-0 transition-all cursor-pointer ${
                     selectedImage === idx ? 'border-white scale-95' : 'border-zinc-800 opacity-60 hover:opacity-100'
                   }`}
                 >
@@ -177,9 +202,11 @@ const ProductDetail = () => {
               <span className="bg-zinc-800 text-zinc-300 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
                 {product.mainGroup}
               </span>
-              <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
-                {product.subGroup}
-              </span>
+              {product.subGroup && (
+                <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
+                  {product.subGroup}
+                </span>
+              )}
               {isOutOfStock && (
                 <span className="bg-red-950/80 text-red-400 border border-red-800/80 text-[10px] font-bold px-2.5 py-1 rounded uppercase">
                   Out of Stock
@@ -204,7 +231,7 @@ const ProductDetail = () => {
           {/* LIVE SHIPROCKET DELIVERY CHECKER */}
           <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-4 space-y-3">
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center">
-              <FiTruck className="mr-2" /> Check Live Delivery & COD Availability
+              <FiTruck className="mr-2 text-amber-400" /> Check Live Delivery & COD Availability
             </label>
             <div className="flex gap-2">
               <input
@@ -212,7 +239,7 @@ const ProductDetail = () => {
                 placeholder="Enter 6-digit Pincode"
                 maxLength={6}
                 value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
+                onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
                 className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-500 flex-1"
               />
               <button 
@@ -245,27 +272,31 @@ const ProductDetail = () => {
 
           <p className="text-sm text-zinc-400 leading-relaxed">{product.description}</p>
 
-          {/* Size Selector */}
-          <div>
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Select Size</h3>
-            <div className="flex gap-3">
-              {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`w-12 h-12 rounded-xl font-bold text-sm border transition-all flex items-center justify-center ${
-                    selectedSize === size
-                      ? 'bg-white text-black border-white shadow-lg'
-                      : 'bg-[#18181b] text-zinc-400 border-zinc-800 hover:border-zinc-600'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+          {/* DYNAMIC SIZE SELECTOR */}
+          {!isAccessories && (
+            <div>
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">
+                {isShoes ? 'Select Foot Size (UK)' : 'Select Apparel Size'}
+              </h3>
+              <div className="flex flex-wrap gap-2.5">
+                {(isShoes ? shoeSizes : clothingSizes).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`px-4 py-2.5 rounded-xl font-bold text-xs border transition-all cursor-pointer flex items-center justify-center ${
+                      selectedSize === size
+                        ? 'bg-amber-500 text-black border-amber-500 shadow-lg scale-105'
+                        : 'bg-[#18181b] text-zinc-300 border-zinc-800 hover:border-zinc-600'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Action Button */}
+          {/* ACTION BUTTON */}
           {isOutOfStock ? (
             <div className="space-y-3">
               {notifySuccess ? (
@@ -284,7 +315,7 @@ const ProductDetail = () => {
             </div>
           ) : (
             <button
-              onClick={() => addToCart({ ...product, size: selectedSize })}
+              onClick={handleAddToCartAction}
               className="w-full bg-white text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors shadow-lg cursor-pointer text-base"
             >
               <FiShoppingBag size={20} /> Add to Cart

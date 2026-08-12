@@ -1053,6 +1053,7 @@ const AdminDashboard = () => {
                     <option value="School Uniforms">School Uniforms</option>
                     <option value="NCC">NCC Uniforms</option>
                     <option value="Security Guard">Security Guard</option>
+                    <option value="Shoes">Shoes & Footwear</option>
                     <option value="Accessories">Accessories</option>
                   </select>
                 </div>
@@ -1064,7 +1065,7 @@ const AdminDashboard = () => {
                   type="text"
                   value={prodSubGroup}
                   onChange={(e) => setProdSubGroup(e.target.value)}
-                  placeholder="e.g. Lower, Shirt, Cap"
+                  placeholder="e.g. Lower, Shirt, Cap, Boots"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
               </div>
