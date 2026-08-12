@@ -40,9 +40,12 @@ const ProductDetail = () => {
         const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products/${id}`);
         setProduct(data);
 
-        // Determine category classification on load to set intelligent size defaults
-        const isAcc = data.mainGroup === 'Accessories' || data.subGroup === 'Accessories';
-        const isShoe = data.mainGroup === 'Shoes' || data.subGroup === 'Shoes' || data.name?.toLowerCase().includes('boot') || data.name?.toLowerCase().includes('shoe') || data.name?.toLowerCase().includes('dms');
+        const sub = (data.subGroup || '').toLowerCase();
+        const main = (data.mainGroup || '').toLowerCase();
+        const title = (data.name || '').toLowerCase();
+
+        const isAcc = main === 'accessories' || sub === 'accessories';
+        const isShoe = sub.includes('shoe') || sub.includes('boot') || sub.includes('dms') || main.includes('shoe') || title.includes('boot') || title.includes('shoe') || title.includes('dms');
 
         if (isAcc) {
           setSelectedSize('One Size');
@@ -58,7 +61,6 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id]);
 
-  // LIVE SHIPROCKET SERVICEABILITY CHECK
   const handleCheckPincode = async () => {
     if (!pincode || pincode.length !== 6) {
       setPincodeError('Enter a valid 6-digit Pincode');
@@ -143,9 +145,12 @@ const ProductDetail = () => {
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
   const isOutOfStock = product.countInStock !== undefined ? product.countInStock <= 0 : !product.inStock;
 
-  // Detect product categories
-  const isAccessories = product.mainGroup === 'Accessories' || product.subGroup === 'Accessories';
-  const isShoes = product.mainGroup === 'Shoes' || product.subGroup === 'Shoes' || product.name?.toLowerCase().includes('boot') || product.name?.toLowerCase().includes('shoe') || product.name?.toLowerCase().includes('dms');
+  const sub = (product.subGroup || '').toLowerCase();
+  const main = (product.mainGroup || '').toLowerCase();
+  const title = (product.name || '').toLowerCase();
+
+  const isAccessories = main === 'accessories' || sub === 'accessories';
+  const isShoes = sub.includes('shoe') || sub.includes('boot') || sub.includes('dms') || main.includes('shoe') || title.includes('boot') || title.includes('shoe') || title.includes('dms');
 
   const handleAddToCartAction = () => {
     const finalSize = isAccessories ? 'One Size' : selectedSize;

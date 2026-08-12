@@ -6,7 +6,7 @@ const Home = () => {
     { 
       name: "School Uniforms", 
       path: "/category/school-uniforms", 
-      image: "/emblems/school-uniform.png" // or direct Cloudinary link
+      image: "/emblems/school-uniform.png"
     },
     { 
       name: "NCC Uniforms", 
@@ -25,6 +25,7 @@ const Home = () => {
     { name: "T-Shirts", path: "/category/tshirts" },
     { name: "Trousers", path: "/category/trousers" },
     { name: "Pants", path: "/category/pants" },
+    { name: "Shoes", path: "/category/shoes" },
     { name: "Accessories", path: "/category/accessories" }
   ];
 
@@ -47,7 +48,6 @@ const Home = () => {
           Job Uniforms
         </h2>
         
-        {/* grid-cols-3 forces all 3 emblems to sit side-by-side in one compact row on mobile */}
         <div className="grid grid-cols-3 gap-2.5 sm:gap-5">
           {uniforms.map((u, index) => (
             <Link 
@@ -74,7 +74,7 @@ const Home = () => {
           Clothes & Components
         </h2>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 sm:gap-3">
           {clothes.map((c, index) => (
             <Link 
               key={index} 

@@ -53,7 +53,7 @@ const AdminDashboard = () => {
   const [prodPrice, setProdPrice] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodMainGroup, setProdMainGroup] = useState('School Uniforms');
-  const [prodSubGroup, setProdSubGroup] = useState('Unassigned');
+  const [prodSubGroup, setProdSubGroup] = useState('Shoes');
   const [prodImages, setProdImages] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
@@ -138,14 +138,13 @@ const AdminDashboard = () => {
         setUsersList([]);
       }
 
-      // Fetch Live Sales Events if backend endpoint exists
       try {
         const salesRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/sales`);
         if (Array.isArray(salesRes.data) && salesRes.data.length > 0) {
           setSaleEvents(salesRes.data);
         }
       } catch {
-        // Fallback to active local state
+        // Local state fallback
       }
 
     } catch (err) {
@@ -371,7 +370,7 @@ const AdminDashboard = () => {
       setProdPrice(prod.price);
       setProdDesc(prod.description);
       setProdMainGroup(prod.mainGroup);
-      setProdSubGroup(prod.subGroup || 'Unassigned');
+      setProdSubGroup(prod.subGroup || 'Shoes');
       
       const existingImgs = Array.isArray(prod.images) && prod.images.length > 0 
         ? prod.images 
@@ -383,7 +382,7 @@ const AdminDashboard = () => {
       setProdPrice('');
       setProdDesc('');
       setProdMainGroup('School Uniforms');
-      setProdSubGroup('Unassigned');
+      setProdSubGroup('Shoes');
       setProdImages([]);
     }
     setProductModalOpen(true);
@@ -495,9 +494,8 @@ const AdminDashboard = () => {
 
     setSaleEvents(prev => [newSale, ...prev]);
 
-    // Apply Discount % to targeted catalog products locally & via API
     const updatedProducts = products.map(p => {
-      if (saleCategory === 'All Categories' || p.mainGroup === saleCategory) {
+      if (saleCategory === 'All Categories' || p.mainGroup === saleCategory || p.subGroup === saleCategory) {
         const discountPrice = Math.round(p.price - (p.price * Number(saleDiscount)) / 100);
         return { ...p, discountPercentage: Number(saleDiscount), discountPrice };
       }
@@ -1327,7 +1325,7 @@ const AdminDashboard = () => {
                   required
                   value={prodName}
                   onChange={(e) => setProdName(e.target.value)}
-                  placeholder="e.g. NCC Tracksuit Set"
+                  placeholder="e.g. NCC DMS Boots"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -1355,7 +1353,6 @@ const AdminDashboard = () => {
                     <option value="School Uniforms">School Uniforms</option>
                     <option value="NCC">NCC Uniforms</option>
                     <option value="Security Guard">Security Guard</option>
-                    <option value="Shoes">Shoes & Footwear</option>
                     <option value="Accessories">Accessories</option>
                   </select>
                 </div>
@@ -1365,11 +1362,21 @@ const AdminDashboard = () => {
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Sub Section</label>
                 <input
                   type="text"
+                  list="subgroup-options"
                   value={prodSubGroup}
                   onChange={(e) => setProdSubGroup(e.target.value)}
-                  placeholder="e.g. Lower, Shirt, Cap, Boots"
+                  placeholder="e.g. Shoes, Boots, Shirt, Trousers, Cap"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
+                <datalist id="subgroup-options">
+                  <option value="Shoes" />
+                  <option value="Boots" />
+                  <option value="Shirt" />
+                  <option value="Trousers" />
+                  <option value="Lower" />
+                  <option value="Cap" />
+                  <option value="Belt" />
+                </datalist>
               </div>
 
               <div>

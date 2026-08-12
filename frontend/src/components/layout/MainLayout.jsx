@@ -21,7 +21,7 @@ const MainLayout = () => {
     location.pathname.startsWith('/profile') || 
     location.pathname.startsWith('/user-profile') || 
     location.pathname.startsWith('/checkout') ||
-    location.pathname.startsWith('/admin') || // 👈 Admin page preference
+    location.pathname.startsWith('/admin') ||
     isStandalonePage;
 
   return (

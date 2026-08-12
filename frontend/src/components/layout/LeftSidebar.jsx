@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 const LeftSidebar = () => {
-  const categories = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Accessories'];
+  const categories = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Shoes', 'Accessories'];
   const orgs = ['School Uniforms', 'NCC', 'Security Guard'];
 
   return (
