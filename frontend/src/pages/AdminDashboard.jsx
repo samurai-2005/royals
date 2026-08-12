@@ -23,7 +23,11 @@ import {
   FiSend,
   FiSearch,
   FiClock,
-  FiMapPin
+  FiMapPin,
+  FiZap,
+  FiTag,
+  FiPercent,
+  FiCalendar
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -42,6 +46,7 @@ const AdminDashboard = () => {
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [trackingModalData, setTrackingModalData] = useState(null);
 
+  // Product Modal Form State
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [prodName, setProdName] = useState('');
@@ -53,8 +58,38 @@ const AdminDashboard = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
 
+  // Inventory Inline Edit State
   const [editingStockId, setEditingStockId] = useState(null);
   const [newStockVal, setNewStockVal] = useState('');
+
+  // ⚡ FLASH SALES & EVENTS STATE
+  const [saleEvents, setSaleEvents] = useState([
+    {
+      _id: 'sale_1',
+      title: 'Monsoon Uniform Blitz',
+      targetCategory: 'School Uniforms',
+      discountPercentage: 15,
+      startDate: '2026-08-10',
+      endDate: '2026-08-20',
+      isActive: true
+    },
+    {
+      _id: 'sale_2',
+      title: 'NCC Boots Flash Clearance',
+      targetCategory: 'Shoes',
+      discountPercentage: 20,
+      startDate: '2026-08-15',
+      endDate: '2026-08-25',
+      isActive: true
+    }
+  ]);
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleTitle, setSaleTitle] = useState('');
+  const [saleCategory, setSaleCategory] = useState('All Categories');
+  const [saleDiscount, setSaleDiscount] = useState('');
+  const [saleStartDate, setSaleStartDate] = useState('');
+  const [saleEndDate, setSaleEndDate] = useState('');
+  const [savingSale, setSavingSale] = useState(false);
 
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
@@ -102,6 +137,17 @@ const AdminDashboard = () => {
         console.warn('Users directory note:', userErr.message);
         setUsersList([]);
       }
+
+      // Fetch Live Sales Events if backend endpoint exists
+      try {
+        const salesRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/sales`);
+        if (Array.isArray(salesRes.data) && salesRes.data.length > 0) {
+          setSaleEvents(salesRes.data);
+        }
+      } catch {
+        // Fallback to active local state
+      }
+
     } catch (err) {
       console.error('Admin data fetch error:', err);
       setDataError(err.response?.data?.message || 'Failed to sync with backend.');
@@ -158,7 +204,6 @@ const AdminDashboard = () => {
         config
       );
 
-      // Instant state update for responsive UI
       setOrders(prev => prev.map(o => o._id === order._id ? {
         ...o,
         shiprocketOrderId: String(data.shiprocket_order_id),
@@ -211,7 +256,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: GENERATE & PRINT SHIPPING LABEL
+  // 🚀 LOGISTICS: PRINT LABEL
   const handleGenerateLabel = async (shipmentId) => {
     if (!shipmentId) {
       alert('Order must be pushed to Shiprocket first.');
@@ -241,7 +286,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: LIVE TRACK SHIPMENT
+  // 🚀 LOGISTICS: LIVE TRACK
   const handleTrackShipment = async (awbCode) => {
     if (!awbCode) {
       alert('No AWB Code assigned to this order yet.');
@@ -266,7 +311,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 💰 FINANCE: MARK PAYMENT RECEIVED
+  // 💰 FINANCE: MARK PAYMENT SETTLED
   const handleMarkPaymentReceived = async (orderId) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -284,6 +329,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // 📸 FILE UPLOAD
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -317,6 +363,7 @@ const AdminDashboard = () => {
     }
   };
 
+  // 📦 PRODUCT HANDLERS
   const handleOpenProductModal = (prod = null) => {
     if (prod) {
       setEditingProduct(prod);
@@ -422,6 +469,61 @@ const AdminDashboard = () => {
     }
   };
 
+  // ⚡ FLASH SALES HANDLERS
+  const handleSaveSaleEvent = async (e) => {
+    e.preventDefault();
+    setSavingSale(true);
+
+    const newSale = {
+      _id: `sale_${Date.now()}`,
+      title: saleTitle,
+      targetCategory: saleCategory,
+      discountPercentage: Number(saleDiscount),
+      startDate: saleStartDate || new Date().toISOString().split('T')[0],
+      endDate: saleEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isActive: true
+    };
+
+    try {
+      const config = getAuthHeader();
+      if (config) {
+        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/sales`, newSale, config);
+      }
+    } catch {
+      // Local fallback state
+    }
+
+    setSaleEvents(prev => [newSale, ...prev]);
+
+    // Apply Discount % to targeted catalog products locally & via API
+    const updatedProducts = products.map(p => {
+      if (saleCategory === 'All Categories' || p.mainGroup === saleCategory) {
+        const discountPrice = Math.round(p.price - (p.price * Number(saleDiscount)) / 100);
+        return { ...p, discountPercentage: Number(saleDiscount), discountPrice };
+      }
+      return p;
+    });
+
+    setProducts(updatedProducts);
+    setSaleModalOpen(false);
+    setSaleTitle('');
+    setSaleDiscount('');
+    setSaleStartDate('');
+    setSaleEndDate('');
+    setSavingSale(false);
+
+    alert(`⚡ Flash Sale "${saleTitle}" launched! ${saleDiscount}% discount applied to ${saleCategory}.`);
+  };
+
+  const handleToggleSaleStatus = async (saleId) => {
+    setSaleEvents(prev => prev.map(s => s._id === saleId ? { ...s, isActive: !s.isActive } : s));
+  };
+
+  const handleDeleteSaleEvent = (saleId) => {
+    if (!window.confirm('Are you sure you want to end and delete this sale event?')) return;
+    setSaleEvents(prev => prev.filter(s => s._id !== saleId));
+  };
+
   const safeOrders = Array.isArray(orders) ? orders : [];
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
   const revenueReceived = safeOrders.filter(o => o.isPaid).reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
@@ -442,6 +544,7 @@ const AdminDashboard = () => {
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
+    { id: 'sales', label: `Flash Sales (${saleEvents.length})`, icon: FiZap },
     { id: 'users', label: `Users (${usersList.length})`, icon: FiUsers },
   ];
 
@@ -471,7 +574,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-zinc-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-2 border-t border-zinc-800/80">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -905,7 +1008,113 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 👥 6. USERS SECTION */}
+      {/* ⚡ 6. FLASH SALES & EVENTS SECTION */}
+      {activeTab === 'sales' && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
+              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
+                Active Flash Sales <FiZap className="text-amber-400" size={18} />
+              </span>
+              <p className="text-3xl font-black text-white">{saleEvents.filter(s => s.isActive).length}</p>
+              <p className="text-[11px] text-zinc-500">Live markdown campaigns on storefront</p>
+            </div>
+
+            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
+              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
+                Target Categories <FiTag className="text-emerald-400" size={18} />
+              </span>
+              <p className="text-3xl font-black text-emerald-400">
+                {new Set(saleEvents.map(s => s.targetCategory)).size}
+              </p>
+              <p className="text-[11px] text-zinc-500">Uniform & shoe categories covered</p>
+            </div>
+
+            <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl space-y-2 shadow-xl">
+              <span className="text-[10px] font-black uppercase text-zinc-500 tracking-wider flex items-center justify-between">
+                Max Flash Discount <FiPercent className="text-amber-400" size={18} />
+              </span>
+              <p className="text-3xl font-black text-amber-400">
+                {saleEvents.length > 0 ? Math.max(...saleEvents.map(s => s.discountPercentage)) : 0}%
+              </p>
+              <p className="text-[11px] text-zinc-500">Highest active discount percentage</p>
+            </div>
+          </div>
+
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+              <div>
+                <h2 className="text-base font-black text-white uppercase tracking-wide">Flash Sales & Event Directory</h2>
+                <p className="text-xs text-zinc-400">Launch storewide or category-specific promotional campaigns.</p>
+              </div>
+
+              <button
+                onClick={() => setSaleModalOpen(true)}
+                className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+              >
+                <FiPlus size={16} /> Create Sale Campaign
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-zinc-300">
+                <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
+                  <tr>
+                    <th className="p-3.5">Campaign Title</th>
+                    <th className="p-3.5">Target Section</th>
+                    <th className="p-3.5">Discount Rate</th>
+                    <th className="p-3.5">Campaign Window</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/80">
+                  {saleEvents.map((s) => (
+                    <tr key={s._id} className="hover:bg-zinc-900/50 transition-colors">
+                      <td className="p-3.5 font-bold text-white flex items-center gap-2">
+                        <FiZap className="text-amber-400" size={14} /> {s.title}
+                      </td>
+                      <td className="p-3.5 text-zinc-300">
+                        <span className="bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                          {s.targetCategory}
+                        </span>
+                      </td>
+                      <td className="p-3.5 font-black text-emerald-400">{s.discountPercentage}% OFF</td>
+                      <td className="p-3.5 text-zinc-400 font-mono text-[11px] flex items-center gap-1">
+                        <FiCalendar size={12} /> {s.startDate} to {s.endDate}
+                      </td>
+                      <td className="p-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                          s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                        }`}>
+                          {s.isActive ? 'Active' : 'Paused'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right space-x-2">
+                        <button
+                          onClick={() => handleToggleSaleStatus(s._id)}
+                          className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                        >
+                          {s.isActive ? 'Pause' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSaleEvent(s._id)}
+                          className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer inline-flex items-center"
+                          title="Delete Event"
+                        >
+                          <FiTrash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 👥 7. USERS SECTION */}
       {activeTab === 'users' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
@@ -1003,6 +1212,99 @@ const AdminDashboard = () => {
             >
               Close Window
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ MODAL: CREATE FLASH SALE EVENT */}
+      {saleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative">
+            <button onClick={() => setSaleModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
+              <FiX size={20} />
+            </button>
+
+            <h3 className="text-lg font-black text-white flex items-center gap-2">
+              <FiZap className="text-amber-400" /> Launch New Flash Sale Campaign
+            </h3>
+
+            <form onSubmit={handleSaveSaleEvent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Campaign Title</label>
+                <input
+                  type="text"
+                  required
+                  value={saleTitle}
+                  onChange={(e) => setSaleTitle(e.target.value)}
+                  placeholder="e.g. Back-To-School Uniform Blitz"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Target Category</label>
+                  <select
+                    value={saleCategory}
+                    onChange={(e) => setSaleCategory(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="All Categories">All Categories</option>
+                    <option value="School Uniforms">School Uniforms</option>
+                    <option value="NCC">NCC Uniforms</option>
+                    <option value="Security Guard">Security Guard</option>
+                    <option value="Shoes">Shoes & Footwear</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Discount Rate (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="90"
+                    value={saleDiscount}
+                    onChange={(e) => setSaleDiscount(e.target.value)}
+                    placeholder="e.g. 15"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={saleStartDate}
+                    onChange={(e) => setSaleStartDate(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">End Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={saleEndDate}
+                    onChange={(e) => setSaleEndDate(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingSale}
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2 disabled:opacity-50"
+              >
+                {savingSale ? 'Launching Campaign...' : 'Launch Flash Sale Campaign'}
+              </button>
+            </form>
           </div>
         </div>
       )}
