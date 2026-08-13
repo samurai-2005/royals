@@ -170,7 +170,7 @@ const Catalog = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {uniformSets.map((setItem) => {
                 const activePrice = setItem.discountPrice > 0 ? setItem.discountPrice : setItem.price;
-                const setImages = setItem.images && setItem.images.length > 0 ? setItem.images : [setItem.image];
+                const coverImg = setItem.images?.[0] || setItem.image;
                 const selectedSize = setSizes[setItem._id] || 'M';
 
                 return (
@@ -180,24 +180,24 @@ const Catalog = () => {
                     className="bg-[#18181b] border border-zinc-800 rounded-3xl overflow-hidden p-5 flex flex-col justify-between hover:border-zinc-700 transition-all shadow-xl group space-y-4 cursor-pointer"
                   >
                     <div className="space-y-4">
-                      {/* Set Cover & Multi-Image Gallery */}
+                      {/* Set Cover Image */}
                       <div className="relative aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800/80 flex items-center justify-center group-hover:opacity-95 transition-opacity">
                         <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow z-10 flex items-center gap-1">
                           <FiAward size={12} /> COMPLETE UNIFORM BUNDLE
                         </span>
 
                         <span className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md border border-zinc-700/80 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                          <FiEye size={12} /> View Full Breakdown
+                          <FiEye size={12} /> View Details
                         </span>
 
-                        {setImages[0] ? (
+                        {coverImg ? (
                           <img 
-                            src={getImageUrl(setImages[0])} 
+                            src={getImageUrl(coverImg)} 
                             alt={setItem.name} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <div className="text-zinc-600 text-xs font-bold uppercase">No Set Cover Image</div>
+                          <div className="text-zinc-600 text-xs font-bold uppercase">No Cover Image</div>
                         )}
                       </div>
 
@@ -211,22 +211,6 @@ const Catalog = () => {
                         </h3>
                         <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{setItem.description}</p>
                       </div>
-
-                      {/* Included Component Thumbnails */}
-                      {setImages.length > 1 && (
-                        <div className="space-y-1.5 pt-1">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
-                            Included Package Components ({setImages.length})
-                          </span>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {setImages.map((img, idx) => (
-                              <div key={idx} className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex-shrink-0">
-                                <img src={getImageUrl(img)} alt={`Component ${idx}`} className="w-full h-full object-cover" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* BOTTOM CONTROL CARD: INLINE SIZE SELECTOR & PRICING */}
