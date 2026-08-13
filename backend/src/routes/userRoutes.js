@@ -7,6 +7,7 @@ const {
   checkOtpChannels,
   sendOtp,
   verifyOtp,
+  resetPassword,
   getUserProfile,
   updateUserProfile,
   savePushSubscription,
@@ -23,10 +24,11 @@ router.route('/')
   .get(protect, admin, getUsers); // Admin access to fetch all users
 router.post('/login', authUser);
 
-// OTP Verification Routes
+// OTP Verification & Password Reset Routes
 router.post('/check-otp-channels', checkOtpChannels);
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
+router.put('/reset-password', resetPassword);
 
 // PWA Push Subscription Route
 router.post('/subscribe-push', savePushSubscription);

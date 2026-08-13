@@ -11,7 +11,9 @@ import {
   FiCheckCircle, 
   FiShield, 
   FiSmartphone, 
-  FiKey 
+  FiKey,
+  FiEye,
+  FiEyeOff
 } from 'react-icons/fi';
 
 const Login = () => {
@@ -26,10 +28,16 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
+  // Forgot Password / Reset Password States
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowShowNewPassword] = useState(false);
+
   // OTP Auth Flow States
   const [authMethod, setAuthMethod] = useState('otp'); // 'otp' | 'password'
-  const [step, setStep] = useState('input'); // 'input' | 'channel_select' | 'otp_verify'
+  const [step, setStep] = useState('input'); // 'input' | 'channel_select' | 'otp_verify' | 'new_password'
   const [loginIdentifier, setLoginIdentifier] = useState(''); // Email or Phone typed by user
   const [selectedChannel, setSelectedChannel] = useState('sms'); // 'sms' | 'email'
   const [otp, setOtp] = useState('');
@@ -47,7 +55,7 @@ const Login = () => {
 
   // Step 1: Request OTP (Triggers channel selection if user has both email & phone)
   const handleRequestOtp = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError('');
     setMessage('');
 
@@ -85,7 +93,10 @@ const Login = () => {
       });
       
       setSelectedChannel(channel);
-      setMessage(`OTP sent! If SMS is not delivered, check your email inbox.`);
+      setMessage(isForgotMode 
+        ? `Recovery OTP sent! Verify code to reset password.` 
+        : `OTP sent! If SMS is not delivered, check your email inbox.`
+      );
       setStep('otp_verify');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
@@ -94,7 +105,7 @@ const Login = () => {
     }
   };
 
-  // Step 2: Verify OTP & Complete Login -> Redirect to Home Page
+  // Step 2: Verify OTP & Complete Login / Proceed to Password Reset
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -106,10 +117,54 @@ const Login = () => {
         otp
       });
 
-      localStorage.setItem('userInfo', JSON.stringify(data));
-      navigate('/'); // 👈 Redirects directly to Homepage upon successful OTP verification
+      if (isForgotMode) {
+        setMessage('Identity verified! Please enter your new password.');
+        setStep('new_password');
+      } else {
+        localStorage.setItem('userInfo', JSON.stringify(data));
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid or expired OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Forgot Password Trigger
+  const handleTriggerForgotPassword = (e) => {
+    e.preventDefault();
+    if (!loginIdentifier.trim()) {
+      setError('Please enter your email or mobile number first.');
+      return;
+    }
+    setIsForgotMode(true);
+    handleRequestOtp();
+  };
+
+  // Handle Setting New Password after OTP verification
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/users/reset-password`, {
+        identifier: loginIdentifier,
+        newPassword
+      });
+
+      setMessage('Password updated successfully! Please sign in with your new password.');
+      setIsForgotMode(false);
+      setAuthMethod('password');
+      setStep('input');
+      setPassword(newPassword);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -128,7 +183,7 @@ const Login = () => {
       });
 
       localStorage.setItem('userInfo', JSON.stringify(data));
-      navigate('/'); // 👈 Redirects directly to Homepage upon successful password sign-in
+      navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
@@ -136,7 +191,7 @@ const Login = () => {
     }
   };
 
-  // Account Registration (Requires BOTH Mobile & Email)
+  // Account Registration
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
@@ -169,7 +224,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
       
-      {/* Subtle Background Glows */}
+      {/* Background Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-amber-600/5 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -198,13 +253,13 @@ const Login = () => {
         {/* Tab Toggle: Login vs Signup */}
         <div className="grid grid-cols-2 bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800/80 text-xs font-bold shadow-inner">
           <button 
-            onClick={() => { setTab('login'); setStep('input'); setError(''); setMessage(''); }}
+            onClick={() => { setTab('login'); setStep('input'); setIsForgotMode(false); setError(''); setMessage(''); }}
             className={`py-2.5 rounded-xl transition-all cursor-pointer ${tab === 'login' ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-black' : 'text-zinc-400 hover:text-white'}`}
           >
             Sign In
           </button>
           <button 
-            onClick={() => { setTab('signup'); setError(''); setMessage(''); }}
+            onClick={() => { setTab('signup'); setIsForgotMode(false); setError(''); setMessage(''); }}
             className={`py-2.5 rounded-xl transition-all cursor-pointer ${tab === 'signup' ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md font-black' : 'text-zinc-400 hover:text-white'}`}
           >
             Register
@@ -221,7 +276,7 @@ const Login = () => {
 
         {/* Global Error/Success Messages */}
         {error && (
-          <div className="bg-red-950/40 border border-red-800/60 p-3.5 rounded-2xl text-red-400 text-xs text-center font-medium animate-shake">
+          <div className="bg-red-950/40 border border-red-800/60 p-3.5 rounded-2xl text-red-400 text-xs text-center font-medium">
             {error}
           </div>
         )}
@@ -257,19 +312,37 @@ const Login = () => {
 
                 {authMethod === 'password' && (
                   <div>
-                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
-                      Password
-                    </label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleTriggerForgotPassword}
+                        className="text-[10px] text-amber-400 hover:underline font-bold cursor-pointer transition-colors"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+
                     <div className="relative">
                       <FiLock className="absolute left-4 top-3.5 text-zinc-500" size={18} />
                       <input 
-                        type="password" 
+                        type={showPassword ? "text" : "password"} 
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3.5 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-12 py-3.5 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-3.5 text-zinc-500 hover:text-zinc-300 focus:outline-none cursor-pointer"
+                        title={showPassword ? "Hide Password" : "Show Password"}
+                      >
+                        {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -285,7 +358,7 @@ const Login = () => {
                 <div className="text-center pt-2">
                   <button 
                     type="button" 
-                    onClick={() => setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')}
+                    onClick={() => { setAuthMethod(authMethod === 'otp' ? 'password' : 'otp'); setIsForgotMode(false); }}
                     className="text-[11px] text-zinc-400 hover:text-amber-400 transition-colors font-medium cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <FiKey size={13} />
@@ -362,7 +435,7 @@ const Login = () => {
                   disabled={loading}
                   className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-4 rounded-2xl transition-all text-xs shadow-lg shadow-amber-500/10 disabled:opacity-50 cursor-pointer uppercase tracking-wider active:scale-[0.99]"
                 >
-                  {loading ? 'Verifying Code...' : 'Verify OTP & Enter Account'}
+                  {loading ? 'Verifying Code...' : isForgotMode ? 'Verify Code to Reset Password' : 'Verify OTP & Enter Account'}
                 </button>
 
                 <div className="flex justify-between text-[11px] text-zinc-400 pt-1 font-medium">
@@ -373,6 +446,44 @@ const Login = () => {
                     Change Email/Phone
                   </button>
                 </div>
+              </form>
+            )}
+
+            {/* Step D: Set New Password (In Forgot Password Flow) */}
+            {step === 'new_password' && (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4 animate-fade-in">
+                <div>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">
+                    Set New Password
+                  </label>
+                  <div className="relative">
+                    <FiLock className="absolute left-4 top-3.5 text-zinc-500" size={18} />
+                    <input 
+                      type={showNewPassword ? "text" : "password"} 
+                      required
+                      minLength={6}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-12 py-3.5 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowShowNewPassword(!showNewPassword)}
+                      className="absolute right-4 top-3.5 text-zinc-500 hover:text-zinc-300 focus:outline-none cursor-pointer"
+                    >
+                      {showNewPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-4 rounded-2xl transition-all text-xs shadow-lg shadow-amber-500/10 disabled:opacity-50 cursor-pointer uppercase tracking-wider active:scale-[0.99]"
+                >
+                  {loading ? 'Updating Password...' : 'Save New Password & Sign In'}
+                </button>
               </form>
             )}
 
@@ -440,14 +551,21 @@ const Login = () => {
               <div className="relative">
                 <FiLock className="absolute left-4 top-3 text-zinc-500" size={16} />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   required
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl pl-11 pr-12 py-3 text-white text-xs placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3 text-zinc-500 hover:text-zinc-300 focus:outline-none cursor-pointer"
+                >
+                  {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                </button>
               </div>
             </div>
 

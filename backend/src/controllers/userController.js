@@ -288,6 +288,43 @@ const verifyOtp = async (req, res) => {
   }
 };
 
+// @desc    Reset user password
+// @route   PUT /api/users/reset-password
+const resetPassword = async (req, res) => {
+  try {
+    const { identifier, newPassword } = req.body;
+
+    if (!identifier || !newPassword) {
+      return res.status(400).json({ message: 'Mobile/Email identifier and new password are required.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+    }
+
+    const cleanIdentifier = String(identifier).trim();
+    const cleanPhone = cleanIdentifier.replace(/\D/g, '').slice(-10);
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanIdentifier.toLowerCase() },
+        { phone: cleanPhone }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User account not found.' });
+    }
+
+    user.password = newPassword; // Will trigger pre-save bcrypt hashing in User model
+    await user.save();
+
+    res.json({ success: true, message: 'Password updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // @desc    Get user profile (Sync on page load)
 // @route   GET /api/users/profile
 // @access  Private
@@ -462,6 +499,7 @@ module.exports = {
   checkOtpChannels,
   sendOtp,
   verifyOtp,
+  resetPassword,
   getUserProfile,
   updateUserProfile,
   savePushSubscription,
