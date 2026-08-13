@@ -72,14 +72,18 @@ const ProductDetail = () => {
           setSelectedSize('M');
         }
 
-        // If product is a Set with linked component IDs, fetch those products for the breakdown section
-        if ((data.subGroup === 'Set' || data.isSet) && Array.isArray(data.selectedComponents) && data.selectedComponents.length > 0) {
-          try {
-            const allProductsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
-            const matchedComponents = (allProductsRes.data || []).filter(p => data.selectedComponents.includes(p._id));
-            setSetComponents(matchedComponents);
-          } catch (compErr) {
-            console.warn('Failed to fetch set components:', compErr);
+        // Fetch linked components if this is a uniform set
+        if (data.subGroup === 'Set' || data.isSet) {
+          const allProductsRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/products`);
+          const allProds = allProductsRes.data || [];
+
+          if (Array.isArray(data.selectedComponents) && data.selectedComponents.length > 0) {
+            const matched = allProds.filter(p => data.selectedComponents.includes(p._id));
+            setSetComponents(matched);
+          } else {
+            // Fallback: If no components explicitly linked, pull items from same category
+            const categoryProds = allProds.filter(p => p.mainGroup?.toLowerCase() === data.mainGroup?.toLowerCase() && p._id !== data._id && p.subGroup !== 'Set');
+            setSetComponents(categoryProds.slice(0, 4)); // Show up to 4 related category items
           }
         }
       } catch (error) {
@@ -411,7 +415,7 @@ const ProductDetail = () => {
               <FiLayers className="text-amber-400" /> Included Package Breakdown
             </h2>
             <p className="text-xs text-zinc-400 mt-1">
-              Every component included in this official {product.mainGroup} dress kit package.
+              Every component included in this official {product.mainGroup} dress kit package. Click any item to view its individual product page.
             </p>
           </div>
 
@@ -428,7 +432,7 @@ const ProductDetail = () => {
                   <div 
                     key={comp._id} 
                     onClick={() => navigate(`/product/${comp._id}`)}
-                    className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer group"
+                    className="bg-zinc-900 border border-zinc-800 hover:border-amber-500/80 p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer group shadow"
                   >
                     <div className="w-14 h-14 bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
                       {compImg ? (
