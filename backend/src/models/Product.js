@@ -39,7 +39,10 @@ const productSchema = new mongoose.Schema({
     default: 'Unassigned', 
     trim: true 
   },
-  
+
+  // 🎓 LINKED UNIFORM SET COMPONENTS (Array of Component Product IDs)
+  selectedComponents: [{ type: String }],
+
   // DYNAMIC WEIGHT & PACKAGING DIMENSIONS
   weight: { 
     type: Number, 

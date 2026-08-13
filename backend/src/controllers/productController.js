@@ -56,7 +56,7 @@ const getPromotionalProducts = async (req, res) => {
   }
 };
 
-// @desc    Create a new product (Supports Dynamic Weights & Package Dimensions)
+// @desc    Create a new product or uniform set
 // @route   POST /api/products
 const createProduct = async (req, res) => {
   try {
@@ -74,7 +74,8 @@ const createProduct = async (req, res) => {
       weight,
       length,
       width,
-      height
+      height,
+      selectedComponents
     } = req.body;
 
     if (!mainGroup) {
@@ -90,6 +91,7 @@ const createProduct = async (req, res) => {
       mainGroup,
       subGroup: subGroup || 'Unassigned', 
       images: images || [],
+      selectedComponents: selectedComponents || [],
       isPromotional: isPromotional || false,
       discountPrice: discountPrice || 0,
       discountPercentage: discountPercentage || 0,
@@ -108,7 +110,7 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Update a product & dispatch Restock Push Notifications if restocked
+// @desc    Update a product or set details
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res) => {
   try {
@@ -125,7 +127,8 @@ const updateProduct = async (req, res) => {
       weight,
       length,
       width,
-      height
+      height,
+      selectedComponents
     } = req.body;
     
     const product = await Product.findById(req.params.id);
@@ -140,6 +143,7 @@ const updateProduct = async (req, res) => {
       product.mainGroup = mainGroup || product.mainGroup;
       product.subGroup = subGroup || product.subGroup;
       
+      if (selectedComponents !== undefined) product.selectedComponents = selectedComponents;
       if (discountPrice !== undefined) product.discountPrice = discountPrice;
       if (discountPercentage !== undefined) product.discountPercentage = discountPercentage;
 
@@ -163,14 +167,12 @@ const updateProduct = async (req, res) => {
           url: `/product/${product._id}`
         };
 
-        // Dispatch Web Push to all waiting customers
         for (const subscriber of product.restockSubscribers) {
           if (subscriber.subscription) {
             await sendPushNotification(subscriber.subscription, payload);
           }
         }
 
-        // Clear subscriber queue after dispatch
         product.restockSubscribers = [];
       }
 
@@ -199,7 +201,6 @@ const subscribeToRestock = async (req, res) => {
       return res.status(400).json({ message: 'Product is currently in stock.' });
     }
 
-    // Check if subscription already exists in waitlist
     const alreadySubscribed = product.restockSubscribers.some(
       (sub) => sub.subscription?.endpoint === subscription?.endpoint || (email && sub.email === email)
     );

@@ -25,7 +25,7 @@ import {
   FiClock,
   FiMapPin,
   FiZap,
-  FiAward,
+  FiAward
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -495,13 +495,19 @@ const AdminDashboard = () => {
 
     setSavingSet(true);
     try {
-      // Auto-fallback: If no custom set images uploaded, use images of selected component products
-      const componentImages = products
-        .filter(p => selectedSetProductIds.includes(p._id))
-        .map(p => (p.images && p.images.length > 0 ? p.images[0] : p.image))
-        .filter(Boolean);
-
-      const finalImages = setImages.length > 0 ? setImages : componentImages;
+      // Clean fallback: If no custom set images uploaded, use ONLY 1 cover image from the first component item
+      let finalSetImages = [];
+      if (setImages.length > 0) {
+        finalSetImages = setImages;
+      } else {
+        const firstComponent = products.find(p => selectedSetProductIds.includes(p._id));
+        const firstImg = firstComponent?.images?.[0] || firstComponent?.image;
+        if (firstImg) {
+          finalSetImages = [firstImg]; // Exactly 1 cover image!
+        } else {
+          finalSetImages = ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&q=80'];
+        }
+      }
 
       const setPayload = {
         name: setName,
@@ -509,7 +515,7 @@ const AdminDashboard = () => {
         description: setDesc || `Complete ${setCategory} Uniform Set including all required components.`,
         mainGroup: setCategory,
         subGroup: 'Set',
-        images: finalImages,
+        images: finalSetImages,
         selectedComponents: selectedSetProductIds,
         weight: Number(setWeight) || 1.2,
         length: Number(setLength) || 20,
@@ -535,7 +541,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🏷️ INDIVIDUAL SALE HANDLER
+  // INDIVIDUAL SALE HANDLER
   const handleSaveIndividualSale = async (product) => {
     const saleVal = Number(individualSaleInputs[product._id]);
     const config = getAuthHeader();
@@ -1475,7 +1481,7 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* 🖼️ SET PICTURES (UPLOAD & PREVIEW) */}
+              {/* 🖼️ SET PICTURES */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                   Set Custom Pictures ({setImages.length} Uploaded)
@@ -1515,7 +1521,7 @@ const AdminDashboard = () => {
                   </label>
                 </div>
                 <p className="text-[10px] text-zinc-500 mt-1">
-                  Upload custom cover/photos for this set. If empty, the set cover will automatically use linked component pictures.
+                  Upload custom cover/photos for this set. If empty, 1 placeholder image will be assigned.
                 </p>
               </div>
 
@@ -1700,7 +1706,7 @@ const AdminDashboard = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleFileUpload}
+                      onChange={(e) => handleFileUpload(e, 'product')}
                       disabled={uploadingImage}
                       className="hidden"
                     />
