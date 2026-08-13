@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useCart } from '../context/CartContext';
 import { 
   FiGrid, 
   FiLayers, 
-  FiShoppingBag, 
   FiEye,
   FiAward,
   FiShield,
@@ -22,15 +20,11 @@ const ORGS = [
 
 const Catalog = () => {
   const navigate = useNavigate();
-  const { addToCart } = useCart();
   
   const [selectedOrg, setSelectedOrg] = useState('School Uniforms');
   const [activeMode, setActiveMode] = useState('sets'); // 'sets' or 'individual'
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Buffer state to track selected size per individual set item card: { [setId]: 'M' }
-  const [setSizes, setSetSizes] = useState({});
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '';
@@ -53,28 +47,6 @@ const Catalog = () => {
     };
     fetchProducts();
   }, []);
-
-  const handleSizeChange = (setId, size) => {
-    setSetSizes(prev => ({ ...prev, [setId]: size }));
-  };
-
-  const handleAddSetToCart = (e, setProduct) => {
-    e.stopPropagation(); // Prevents navigating to product detail when clicking 'Add to Cart'
-    const chosenSize = setSizes[setProduct._id] || 'M';
-    const effectivePrice = setProduct.discountPrice > 0 ? setProduct.discountPrice : setProduct.price;
-
-    addToCart({
-      _id: setProduct._id,
-      name: setProduct.name,
-      price: effectivePrice,
-      size: chosenSize,
-      weight: setProduct.weight || 1.2,
-      qty: 1,
-      images: setProduct.images || []
-    });
-
-    navigate('/cart');
-  };
 
   // Filter products by selected organization
   const categoryProducts = products.filter(p => 
@@ -171,7 +143,6 @@ const Catalog = () => {
               {uniformSets.map((setItem) => {
                 const activePrice = setItem.discountPrice > 0 ? setItem.discountPrice : setItem.price;
                 const coverImg = setItem.images?.[0] || setItem.image;
-                const selectedSize = setSizes[setItem._id] || 'M';
 
                 return (
                   <div 
@@ -184,10 +155,6 @@ const Catalog = () => {
                       <div className="relative aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800/80 flex items-center justify-center group-hover:opacity-95 transition-opacity">
                         <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow z-10 flex items-center gap-1">
                           <FiAward size={12} /> COMPLETE UNIFORM BUNDLE
-                        </span>
-
-                        <span className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md border border-zinc-700/80 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                          <FiEye size={12} /> View Details
                         </span>
 
                         {coverImg ? (
@@ -206,64 +173,28 @@ const Catalog = () => {
                         <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">
                           {setItem.mainGroup}
                         </span>
-                        <h3 className="text-base font-black text-white leading-snug hover:text-amber-400 transition-colors">
+                        <h3 className="text-base font-black text-white leading-snug group-hover:text-amber-400 transition-colors">
                           {setItem.name}
                         </h3>
                         <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{setItem.description}</p>
                       </div>
                     </div>
 
-                    {/* BOTTOM CONTROL CARD: INLINE SIZE SELECTOR & PRICING */}
-                    <div className="pt-4 border-t border-zinc-800/80 space-y-4" onClick={(e) => e.stopPropagation()}>
-                      {/* Integrated Inline Size Selector */}
+                    {/* BOTTOM SECTION: Pricing & Small View Button */}
+                    <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between gap-3">
                       <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                            Select Dress Size
-                          </span>
-                          <span className="text-[10px] font-bold text-amber-400 font-mono">
-                            Selected: {selectedSize}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
-                            <button
-                              key={size}
-                              type="button"
-                              onClick={() => handleSizeChange(setItem._id, size)}
-                              className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                                selectedSize === size
-                                  ? 'bg-amber-500 text-black border-amber-500 font-black shadow-md scale-105'
-                                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700'
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Bundle Price</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl font-black text-white">Rs {activePrice}</span>
+                          {setItem.discountPrice > 0 && (
+                            <span className="text-xs font-bold text-zinc-500 line-through">Rs {setItem.price}</span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Price & Action */}
-                      <div className="flex items-center justify-between gap-3 pt-1">
-                        <div>
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">Bundle Price</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-black text-white">Rs {activePrice}</span>
-                            {setItem.discountPrice > 0 && (
-                              <span className="text-xs font-bold text-zinc-500 line-through">Rs {setItem.price}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => handleAddSetToCart(e, setItem)}
-                          className="bg-white hover:bg-zinc-200 text-black font-black px-5 py-3 rounded-2xl text-xs transition-all flex items-center gap-2 shadow-lg cursor-pointer active:scale-95"
-                        >
-                          <FiShoppingBag size={15} /> Buy Complete Set
-                        </button>
-                      </div>
+                      <span className="bg-zinc-800 group-hover:bg-amber-500 group-hover:text-black text-zinc-200 font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow">
+                        View Set <FiArrowRight size={14} />
+                      </span>
                     </div>
                   </div>
                 );
