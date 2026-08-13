@@ -25,7 +25,7 @@ import {
   FiClock,
   FiMapPin,
   FiZap,
-  FiAward
+  FiAward,
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -72,6 +72,8 @@ const AdminDashboard = () => {
   const [setWidth, setSetWidth] = useState('15');
   const [setHeight, setSetHeight] = useState('10');
   const [selectedSetProductIds, setSelectedSetProductIds] = useState([]);
+  const [setImages, setSetImages] = useState([]);
+  const [uploadingSetImage, setUploadingSetImage] = useState(false);
   const [savingSet, setSavingSet] = useState(false);
 
   // Inventory Inline Edit State
@@ -170,7 +172,7 @@ const AdminDashboard = () => {
     verifyAdmin();
   }, [navigate, getAuthHeader, fetchDashboardData]);
 
-  // 🚀 LOGISTICS ACTIONS
+  // LOGISTICS ACTIONS
   const handlePushToShiprocket = async (order) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -299,14 +301,15 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e, target = 'product') => {
     const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('image', file);
 
-    setUploadingImage(true);
+    if (target === 'set') setUploadingSetImage(true);
+    else setUploadingImage(true);
 
     try {
       const config = getAuthHeader() || {};
@@ -318,17 +321,22 @@ const AdminDashboard = () => {
 
       const uploadedPath = typeof data === 'string' ? data : (data.image || data.path || data.url);
       if (uploadedPath) {
-        setProdImages(prev => [...prev, uploadedPath]);
+        if (target === 'set') {
+          setSetImages(prev => [...prev, uploadedPath]);
+        } else {
+          setProdImages(prev => [...prev, uploadedPath]);
+        }
       }
     } catch (err) {
       console.error('File upload error:', err);
       alert(err.response?.data?.message || 'Failed to upload image to server.');
     } finally {
+      setUploadingSetImage(false);
       setUploadingImage(false);
     }
   };
 
-  // 📦 PRODUCT HANDLERS
+  // PRODUCT HANDLERS
   const handleOpenProductModal = (prod = null) => {
     if (prod) {
       setEditingProduct(prod);
@@ -458,7 +466,12 @@ const AdminDashboard = () => {
       setSetLength(String(setItem.length || '20'));
       setSetWidth(String(setItem.width || '15'));
       setSetHeight(String(setItem.height || '10'));
-      setSelectedSetProductIds(setItem.images || []);
+      setSelectedSetProductIds(setItem.selectedComponents || []);
+      
+      const existingImgs = Array.isArray(setItem.images) && setItem.images.length > 0 
+        ? setItem.images 
+        : (setItem.image ? [setItem.image] : []);
+      setSetImages(existingImgs);
     } else {
       setEditingSet(null);
       setSetName('');
@@ -470,6 +483,7 @@ const AdminDashboard = () => {
       setSetWidth('15');
       setSetHeight('10');
       setSelectedSetProductIds([]);
+      setSetImages([]);
     }
     setSetModalOpen(true);
   };
@@ -481,10 +495,13 @@ const AdminDashboard = () => {
 
     setSavingSet(true);
     try {
-      const setImages = products
+      // Auto-fallback: If no custom set images uploaded, use images of selected component products
+      const componentImages = products
         .filter(p => selectedSetProductIds.includes(p._id))
         .map(p => (p.images && p.images.length > 0 ? p.images[0] : p.image))
         .filter(Boolean);
+
+      const finalImages = setImages.length > 0 ? setImages : componentImages;
 
       const setPayload = {
         name: setName,
@@ -492,7 +509,8 @@ const AdminDashboard = () => {
         description: setDesc || `Complete ${setCategory} Uniform Set including all required components.`,
         mainGroup: setCategory,
         subGroup: 'Set',
-        images: setImages,
+        images: finalImages,
+        selectedComponents: selectedSetProductIds,
         weight: Number(setWeight) || 1.2,
         length: Number(setLength) || 20,
         width: Number(setWidth) || 15,
@@ -1367,6 +1385,54 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
+              {/* 📦 PACKAGE DIMENSIONS (SHIPROCKET BOX SPECS) */}
+              <div className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-2">
+                <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FiPackage size={14} /> Package Dimensions (Shiprocket Box Specs)
+                </label>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Length (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={setLength}
+                      onChange={(e) => setSetLength(e.target.value)}
+                      placeholder="20"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Width (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={setWidth}
+                      onChange={(e) => setSetWidth(e.target.value)}
+                      placeholder="15"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Height (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={setHeight}
+                      onChange={(e) => setSetHeight(e.target.value)}
+                      placeholder="10"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* DYNAMICALLY FILTERED INVENTORY SELECTION */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
@@ -1407,6 +1473,50 @@ const AdminDashboard = () => {
                   placeholder="Complete uniform set containing shirt, trousers, belt, cap, and boots..."
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
+              </div>
+
+              {/* 🖼️ SET PICTURES (UPLOAD & PREVIEW) */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                  Set Custom Pictures ({setImages.length} Uploaded)
+                </label>
+                
+                <div className="flex flex-wrap items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 rounded-xl min-h-[90px]">
+                  {setImages.map((imgUrl, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-700 bg-zinc-800 group flex-shrink-0">
+                      <img src={getImageUrl(imgUrl)} alt={`Set Image ${idx}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setSetImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute inset-0 bg-red-950/80 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Delete Image"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-700 hover:border-amber-500 flex flex-col items-center justify-center text-zinc-400 hover:text-amber-400 cursor-pointer transition-colors text-center p-1 bg-zinc-900/50 flex-shrink-0">
+                    {uploadingSetImage ? (
+                      <FiRefreshCw className="animate-spin text-amber-400" size={18} />
+                    ) : (
+                      <>
+                        <FiUpload size={16} />
+                        <span className="text-[9px] font-bold mt-1 leading-tight">+ Add</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, 'set')}
+                      disabled={uploadingSetImage}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Upload custom cover/photos for this set. If empty, the set cover will automatically use linked component pictures.
+                </p>
               </div>
 
               <button
