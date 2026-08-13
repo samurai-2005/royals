@@ -58,7 +58,8 @@ const Catalog = () => {
     setSetSizes(prev => ({ ...prev, [setId]: size }));
   };
 
-  const handleAddSetToCart = (setProduct) => {
+  const handleAddSetToCart = (e, setProduct) => {
+    e.stopPropagation(); // Prevents navigating to product detail when clicking 'Add to Cart'
     const chosenSize = setSizes[setProduct._id] || 'M';
     const effectivePrice = setProduct.discountPrice > 0 ? setProduct.discountPrice : setProduct.price;
 
@@ -97,7 +98,7 @@ const Catalog = () => {
         </p>
       </div>
 
-      {/* 1. CATEGORY NAVIGATION TABS (NO EMOJIS) */}
+      {/* 1. CATEGORY NAVIGATION TABS */}
       <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
         {ORGS.map((org) => {
           const Icon = org.icon;
@@ -144,7 +145,7 @@ const Catalog = () => {
         </button>
       </div>
 
-      {/* VIEW 1: UNIFORM SETS & BUNDLES (PUBLISHED FROM SET CREATOR) */}
+      {/* VIEW 1: UNIFORM SETS & BUNDLES */}
       {activeMode === 'sets' && (
         <div className="space-y-6">
           {loading ? (
@@ -156,11 +157,11 @@ const Catalog = () => {
               <FiAward size={40} className="mx-auto text-zinc-600" />
               <h3 className="text-base font-bold text-white">No Uniform Sets Created Yet</h3>
               <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                No ready-made sets have been published for {selectedOrg}. You can browse individual items below or assemble a set in the Admin Command Center.
+                No ready-made sets have been published for {selectedOrg}. You can browse individual items below.
               </p>
               <button
                 onClick={() => setActiveMode('individual')}
-                className="text-xs text-amber-400 font-bold hover:underline inline-flex items-center gap-1 pt-2"
+                className="text-xs text-amber-400 font-bold hover:underline inline-flex items-center gap-1 pt-2 cursor-pointer"
               >
                 Browse Individual Components <FiArrowRight size={12} />
               </button>
@@ -174,14 +175,19 @@ const Catalog = () => {
 
                 return (
                   <div 
-                    key={setItem._id} 
-                    className="bg-[#18181b] border border-zinc-800 rounded-3xl overflow-hidden p-5 flex flex-col justify-between hover:border-zinc-700 transition-all shadow-xl group space-y-4"
+                    key={setItem._id}
+                    onClick={() => navigate(`/product/${setItem._id}`)}
+                    className="bg-[#18181b] border border-zinc-800 rounded-3xl overflow-hidden p-5 flex flex-col justify-between hover:border-zinc-700 transition-all shadow-xl group space-y-4 cursor-pointer"
                   >
                     <div className="space-y-4">
                       {/* Set Cover & Multi-Image Gallery */}
-                      <div className="relative aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800/80 flex items-center justify-center">
+                      <div className="relative aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800/80 flex items-center justify-center group-hover:opacity-95 transition-opacity">
                         <span className="absolute top-3 left-3 bg-amber-500 text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow z-10 flex items-center gap-1">
                           <FiAward size={12} /> COMPLETE UNIFORM BUNDLE
+                        </span>
+
+                        <span className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md border border-zinc-700/80 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                          <FiEye size={12} /> View Full Breakdown
                         </span>
 
                         {setImages[0] ? (
@@ -200,7 +206,9 @@ const Catalog = () => {
                         <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">
                           {setItem.mainGroup}
                         </span>
-                        <h3 className="text-base font-black text-white leading-snug">{setItem.name}</h3>
+                        <h3 className="text-base font-black text-white leading-snug hover:text-amber-400 transition-colors">
+                          {setItem.name}
+                        </h3>
                         <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{setItem.description}</p>
                       </div>
 
@@ -222,7 +230,7 @@ const Catalog = () => {
                     </div>
 
                     {/* BOTTOM CONTROL CARD: INLINE SIZE SELECTOR & PRICING */}
-                    <div className="pt-4 border-t border-zinc-800/80 space-y-4">
+                    <div className="pt-4 border-t border-zinc-800/80 space-y-4" onClick={(e) => e.stopPropagation()}>
                       {/* Integrated Inline Size Selector */}
                       <div>
                         <div className="flex justify-between items-center mb-2">
@@ -265,7 +273,8 @@ const Catalog = () => {
                         </div>
 
                         <button
-                          onClick={() => handleAddSetToCart(setItem)}
+                          type="button"
+                          onClick={(e) => handleAddSetToCart(e, setItem)}
                           className="bg-white hover:bg-zinc-200 text-black font-black px-5 py-3 rounded-2xl text-xs transition-all flex items-center gap-2 shadow-lg cursor-pointer active:scale-95"
                         >
                           <FiShoppingBag size={15} /> Buy Complete Set
