@@ -37,8 +37,46 @@ const getShiprocketToken = async () => {
   }
 };
 
+// 🚚 TIERED SHIPPING FEE CALCULATOR FORMULA
+const calculateCustomerShippingFee = (subtotal, actualCourierRate) => {
+  const C = Number(actualCourierRate) || 0;
+  const S = Number(subtotal) || 0;
+
+  // Below Rs 500 order: Always pay 100% of actual delivery charge
+  if (S < 500) {
+    return C;
+  }
+
+  // Delivery cost exceeds Rs 300 and subtotal >= 500: Customer pays 70%
+  if (C > 300) {
+    return Math.round(C * 0.70);
+  }
+
+  // Above Rs 1500 and C <= 300: Free delivery
+  if (S >= 1500) {
+    return 0;
+  }
+
+  // Between Rs 500 and Rs 1499 and C <= 300: 40% of actual delivery charge
+  if (S >= 500 && S <= 1499) {
+    return Math.round(C * 0.40);
+  }
+
+  return C;
+};
+
+// @desc    Check Pincode Serviceability with Dynamic Weight & Tiered Shipping Rules
+// @route   POST /api/logistics/serviceability
 const checkServiceability = async (req, res) => {
-  const { delivery_postcode, weight = 0.5, cod = 1 } = req.body;
+  const { 
+    delivery_postcode, 
+    weight = 0.5, 
+    length = 10, 
+    width = 10, 
+    height = 5, 
+    cod = 1,
+    subtotal = 0 
+  } = req.body;
 
   if (!delivery_postcode) {
     return res.status(400).json({ success: false, message: 'Delivery pincode is required.' });
@@ -52,12 +90,29 @@ const checkServiceability = async (req, res) => {
       params: {
         pickup_postcode: 801503,
         delivery_postcode,
-        weight,
+        weight: Math.max(0.1, Number(weight)),
         cod: cod ? 1 : 0
       }
     });
 
-    res.json({ success: true, data: data.data });
+    const courierList = data.data?.available_courier_companies || [];
+    let actualCourierRate = 0;
+    let customerShippingFee = 0;
+
+    if (courierList.length > 0) {
+      const topCourier = courierList[0];
+      actualCourierRate = Number(topCourier.rate || topCourier.freight_charge || 0);
+      customerShippingFee = calculateCustomerShippingFee(subtotal, actualCourierRate);
+    }
+
+    res.json({ 
+      success: true, 
+      data: data.data,
+      actualCourierRate,
+      shippingFee: customerShippingFee,
+      weight: Math.max(0.1, Number(weight)),
+      dimensions: { length, width, height }
+    });
   } catch (error) {
     console.error('Serviceability Check Error:', error.response?.data || error.message);
     res.status(500).json({ 
@@ -67,6 +122,8 @@ const checkServiceability = async (req, res) => {
   }
 };
 
+// @desc    Create Order in Shiprocket with Real Dynamic Parcel Weight & Scaled Dimensions
+// @route   POST /api/logistics/create-order
 const createShiprocketOrder = async (req, res) => {
   const { orderId, orderItems, shippingAddress, totalPrice, user, paymentMethod } = req.body;
 
@@ -79,6 +136,28 @@ const createShiprocketOrder = async (req, res) => {
     const lastName = nameParts.slice(1).join(' ') || '';
 
     const phoneToUse = sanitizePhone(shippingAddress?.phone || user?.phone);
+
+    // 📦 DYNAMIC WEIGHT & VOLUMETRIC DIMENSION CALCULATOR
+    let calculatedWeight = 0;
+    let maxLength = 10;
+    let maxWidth = 10;
+    let totalHeight = 5;
+
+    (orderItems || []).forEach((item) => {
+      const qty = Number(item.qty) || 1;
+      const itemWeight = Number(item.weight) || 0.5;
+      calculatedWeight += itemWeight * qty;
+
+      maxLength = Math.max(maxLength, Number(item.length) || 10);
+      maxWidth = Math.max(maxWidth, Number(item.width) || 10);
+      totalHeight += (Number(item.height) || 2) * qty;
+    });
+
+    // Enforce safe bounds
+    calculatedWeight = Math.max(0.1, Number(calculatedWeight.toFixed(2)));
+    maxLength = Math.max(10, maxLength);
+    maxWidth = Math.max(10, maxWidth);
+    totalHeight = Math.max(5, totalHeight);
 
     const payload = {
       order_id: String(orderId).substring(0, 20),
@@ -102,10 +181,10 @@ const createShiprocketOrder = async (req, res) => {
       })),
       payment_method: paymentMethod === 'COD' ? 'COD' : 'Prepaid',
       sub_total: totalPrice,
-      length: 10,
-      breadth: 10,
-      height: 5,
-      weight: 0.5
+      length: maxLength,
+      breadth: maxWidth,
+      height: totalHeight,
+      weight: calculatedWeight
     };
 
     const { data } = await axios.post(
@@ -125,6 +204,8 @@ const createShiprocketOrder = async (req, res) => {
       success: true,
       shiprocket_order_id: data.order_id,
       shipment_id: data.shipment_id,
+      calculatedWeight,
+      dimensions: { length: maxLength, breadth: maxWidth, height: totalHeight },
       data
     });
   } catch (error) {
@@ -259,6 +340,11 @@ const createReturnOrder = async (req, res) => {
   try {
     const token = await getShiprocketToken();
 
+    let calculatedWeight = 0;
+    (orderItems || []).forEach((item) => {
+      calculatedWeight += (Number(item.weight) || 0.5) * (item.qty || 1);
+    });
+
     const payload = {
       order_id: `RET_${String(orderId).substring(0, 16)}`,
       order_date: new Date().toISOString().split('T')[0],
@@ -276,7 +362,7 @@ const createReturnOrder = async (req, res) => {
         units: item.qty || 1,
         selling_price: item.price
       })),
-      length: 10, breadth: 10, height: 5, weight: 0.5
+      length: 10, breadth: 10, height: 5, weight: Math.max(0.1, Number(calculatedWeight.toFixed(2)))
     };
 
     const { data } = await axios.post(

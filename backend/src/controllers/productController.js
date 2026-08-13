@@ -56,7 +56,7 @@ const getPromotionalProducts = async (req, res) => {
   }
 };
 
-// @desc    Create a new product 
+// @desc    Create a new product (Supports Dynamic Weights & Package Dimensions)
 // @route   POST /api/products
 const createProduct = async (req, res) => {
   try {
@@ -70,7 +70,11 @@ const createProduct = async (req, res) => {
       isPromotional, 
       discountPrice,
       discountPercentage,
-      countInStock 
+      countInStock,
+      weight,
+      length,
+      width,
+      height
     } = req.body;
 
     if (!mainGroup) {
@@ -90,7 +94,11 @@ const createProduct = async (req, res) => {
       discountPrice: discountPrice || 0,
       discountPercentage: discountPercentage || 0,
       countInStock: stockCount,
-      inStock: stockCount > 0
+      inStock: stockCount > 0,
+      weight: Number(weight) || 0.5,
+      length: Number(length) || 10,
+      width: Number(width) || 10,
+      height: Number(height) || 5
     });
 
     const createdProduct = await product.save();
@@ -105,7 +113,19 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { 
-      name, price, description, images, mainGroup, subGroup, discountPrice, discountPercentage, countInStock 
+      name, 
+      price, 
+      description, 
+      images, 
+      mainGroup, 
+      subGroup, 
+      discountPrice, 
+      discountPercentage, 
+      countInStock,
+      weight,
+      length,
+      width,
+      height
     } = req.body;
     
     const product = await Product.findById(req.params.id);
@@ -127,6 +147,11 @@ const updateProduct = async (req, res) => {
         product.countInStock = Number(countInStock);
         product.inStock = product.countInStock > 0;
       }
+
+      if (weight !== undefined) product.weight = Number(weight);
+      if (length !== undefined) product.length = Number(length);
+      if (width !== undefined) product.width = Number(width);
+      if (height !== undefined) product.height = Number(height);
 
       const isNowInStock = product.countInStock > 0;
 

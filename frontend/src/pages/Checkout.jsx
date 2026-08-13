@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
@@ -9,12 +9,13 @@ import {
   FiCheckCircle, 
   FiAlertCircle, 
   FiPhone, 
-  FiShield 
+  FiShield,
+  FiPackage
 } from 'react-icons/fi';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cartItems, cartTotal, clearCart } = useCart();
+  const { cartItems, cartTotal, cartWeight, clearCart } = useCart();
 
   const [shippingAddress, setShippingAddress] = useState({
     address: 'Rupaspur, Bailey Road',
@@ -35,16 +36,31 @@ const Checkout = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
 
-  // Pincode Serviceability States
+  // Pincode & Tiered Shipping States
   const [checkingPincode, setCheckingPincode] = useState(false);
   const [serviceability, setServiceability] = useState(null);
   const [pincodeError, setPincodeError] = useState('');
+  const [apiShippingFee, setApiShippingFee] = useState(null);
 
-  // Free shipping threshold (Rs 300)
-  const FREE_SHIPPING_THRESHOLD = 300;
-  const BASE_SHIPPING_FEE = 60;
-  const shippingFee = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : BASE_SHIPPING_FEE;
-  const grandTotal = cartTotal + shippingFee;
+  // Helper: Evaluates customer shipping cost locally based on tiered policy
+  const evaluateLocalShippingTier = useCallback((subtotal, estimatedCourierRate = 60) => {
+    const C = estimatedCourierRate;
+    const S = subtotal;
+
+    if (S < 500) return C;
+    if (C > 300) return Math.round(C * 0.70);
+    if (S >= 1500) return 0;
+    if (S >= 500 && S <= 1499) return Math.round(C * 0.40);
+
+    return C;
+  }, []);
+
+  // 💡 FIX: Derived calculated shipping fee directly in render scope to avoid setState inside useEffect
+  const calculatedShippingFee = serviceability && apiShippingFee !== null
+    ? apiShippingFee
+    : evaluateLocalShippingTier(cartTotal, 60);
+
+  const grandTotal = cartTotal + calculatedShippingFee;
 
   // Fetch User Verification Profile on Mount
   useEffect(() => {
@@ -90,7 +106,7 @@ const Checkout = () => {
     return item.price;
   };
 
-  // 📲 Trigger Mobile OTP
+  // Trigger Mobile OTP
   const handleSendOTP = async () => {
     const cleanPhone = shippingAddress.phone.replace(/\D/g, '');
     if (!cleanPhone || cleanPhone.length !== 10) {
@@ -118,7 +134,7 @@ const Checkout = () => {
     }
   };
 
-  // 🔐 Verify OTP Code
+  // Verify OTP Code
   const handleVerifyOTP = async () => {
     if (!otpCode || otpCode.length < 4) {
       setOtpMessage('Please enter a valid OTP code.');
@@ -153,6 +169,7 @@ const Checkout = () => {
     }
   };
 
+  // Dynamic Serviceability Check
   const handleCheckPincode = async () => {
     if (!shippingAddress.postalCode || shippingAddress.postalCode.length < 6) {
       setPincodeError('Enter a valid 6-digit Pincode');
@@ -166,18 +183,21 @@ const Checkout = () => {
     try {
       const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/logistics/serviceability`, {
         delivery_postcode: shippingAddress.postalCode,
-        weight: 0.5,
+        weight: Math.max(0.1, cartWeight),
+        subtotal: cartTotal,
         cod: paymentMethod === 'COD' ? 1 : 0
       });
 
       if (data.success && data.data?.available_courier_companies?.length > 0) {
         const fastestCourier = data.data.available_courier_companies[0];
+        
         setServiceability({
           available: true,
           courier: fastestCourier.courier_name,
-          etd: fastestCourier.etd || '3-5 Days',
-          codAvailable: fastestCourier.cod === 1
+          etd: fastestCourier.etd || '3-5 Days'
         });
+
+        setApiShippingFee(data.shippingFee !== undefined ? data.shippingFee : evaluateLocalShippingTier(cartTotal, data.actualCourierRate));
       } else {
         setPincodeError('Delivery is currently unavailable for this pincode.');
       }
@@ -221,6 +241,7 @@ const Checkout = () => {
           name: item.name,
           qty: item.qty,
           size: item.size,
+          weight: item.weight || 0.5,
           image: item.images && item.images.length > 0 ? item.images[0] : item.image || '',
           price: getEffectivePrice(item),
           product: item._id
@@ -228,7 +249,7 @@ const Checkout = () => {
         shippingAddress,
         paymentMethod,
         itemsPrice: cartTotal,
-        shippingPrice: shippingFee,
+        shippingPrice: calculatedShippingFee,
         totalPrice: grandTotal
       };
 
@@ -280,14 +301,16 @@ const Checkout = () => {
         <FiLock className="mr-3 text-zinc-400"/> Secure Checkout
       </h1>
 
-      {cartTotal < FREE_SHIPPING_THRESHOLD && (
+      {cartTotal < 1500 && (
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 p-4 rounded-xl mb-6 flex items-center justify-between text-xs md:text-sm font-semibold">
           <span className="flex items-center gap-2">
             <FiTruck size={18} />
-            Add Rs {(FREE_SHIPPING_THRESHOLD - cartTotal).toFixed(2)} more to qualify for <strong>FREE DELIVERY</strong>!
+            {cartTotal < 500 
+              ? `Add Rs ${(500 - cartTotal).toFixed(2)} more to unlock 60% OFF Delivery Charges!`
+              : `Add Rs ${(1500 - cartTotal).toFixed(2)} more to qualify for FREE DELIVERY!`}
           </span>
           <Link to="/catalog" className="underline font-bold text-white hover:text-amber-300">
-            Browse More
+            Browse Store
           </Link>
         </div>
       )}
@@ -523,17 +546,27 @@ const Checkout = () => {
 
           <hr className="border-zinc-800" />
 
+          {/* WEIGHT & COST BREAKDOWN */}
           <div className="space-y-2 text-sm text-zinc-400">
-            <div className="flex justify-between">
-              <span>Items Total</span>
-              <span className="text-white">Rs {cartTotal.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-xs">
+              <span className="flex items-center gap-1 font-semibold text-zinc-400">
+                <FiPackage size={14} /> Total Parcel Weight
+              </span>
+              <span className="font-mono text-white font-bold">{cartWeight.toFixed(2)} kg</span>
             </div>
-            <div className="flex justify-between">
-              <span>Shipping Fee</span>
-              <span className={shippingFee === 0 ? "text-emerald-400 font-bold" : "text-white"}>
-                {shippingFee === 0 ? 'FREE' : `Rs ${shippingFee.toFixed(2)}`}
+
+            <div className="flex justify-between pt-1">
+              <span>Items Subtotal</span>
+              <span className="text-white font-bold">Rs {cartTotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span>Delivery Charges</span>
+              <span className={calculatedShippingFee === 0 ? "text-emerald-400 font-black" : "text-white font-bold"}>
+                {calculatedShippingFee === 0 ? 'FREE' : `Rs ${calculatedShippingFee}`}
               </span>
             </div>
+
             <div className="flex justify-between text-lg font-black text-white pt-2 border-t border-zinc-800">
               <span>Total Amount</span>
               <span>Rs {grandTotal.toFixed(2)}</span>
@@ -543,7 +576,7 @@ const Checkout = () => {
           <button 
             type="submit" 
             disabled={loading || !isPhoneVerified}
-            className="w-full bg-white text-black font-black py-4 rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50 text-lg shadow-lg"
+            className="w-full bg-white text-black font-black py-4 rounded-lg hover:bg-zinc-200 transition-colors disabled:opacity-50 text-lg shadow-lg cursor-pointer"
           >
             {loading ? 'Placing Order...' : (isPhoneVerified ? 'Confirm Order' : 'Verify Mobile to Order')}
           </button>

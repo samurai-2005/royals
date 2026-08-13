@@ -14,9 +14,7 @@ import {
 const ORGS = [
   { id: 'School', name: 'School Uniforms', icon: '🏫' },
   { id: 'NCC', name: 'NCC Cadets', icon: '🎖️' },
-  { id: 'Bihar Police', name: 'Bihar Police', icon: '👮‍♂️' },
-  { id: 'Security Guard', name: 'Security Guard', icon: '🛡️' },
-  { id: 'Indian Army', name: 'Indian Army', icon: '🪖' }
+  { id: 'Security Guard', name: 'Security Guard', icon: '🛡️' }
 ];
 
 // Pre-defined Kit Checklists for fast bundling
@@ -35,6 +33,12 @@ const DEFAULT_KITS = {
     { id: 'belt', name: 'NCC Web Belt & Buckle', price: 180, mandatory: true },
     { id: 'hackle', name: 'Regimental Hackle & Badge', price: 120, mandatory: false },
     { id: 'boots', name: 'D.M.S Ankle Boots', price: 950, mandatory: false }
+  ],
+  'Security Guard': [
+    { id: 'guard_shirt', name: 'Security Guard Uniform Shirt', price: 500, mandatory: true },
+    { id: 'guard_pants', name: 'Guard Trousers', price: 600, mandatory: true },
+    { id: 'cap', name: 'Peak Cap with Badge', price: 200, mandatory: false },
+    { id: 'lanyard', name: 'Whistle & Lanyard', price: 100, mandatory: false }
   ]
 };
 
@@ -47,7 +51,6 @@ const Catalog = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialized selected items from template directly (no useEffect state sync required)
   const [selectedKit, setSelectedKit] = useState(() => 
     (DEFAULT_KITS.School || []).map(item => item.id)
   );
@@ -75,7 +78,6 @@ const Catalog = () => {
     fetchProducts();
   }, []);
 
-  // Clean state update handler when switching organizations
   const handleOrgChange = (orgId) => {
     setSelectedOrg(orgId);
     const kitTemplate = DEFAULT_KITS[orgId] || DEFAULT_KITS.School;
@@ -83,7 +85,7 @@ const Catalog = () => {
   };
 
   const toggleKitItem = (itemId, isMandatory) => {
-    if (isMandatory) return; // Cannot uncheck mandatory items
+    if (isMandatory) return;
     if (selectedKit.includes(itemId)) {
       setSelectedKit(selectedKit.filter(id => id !== itemId));
     } else {
@@ -112,7 +114,7 @@ const Catalog = () => {
   };
 
   const filteredProducts = products.filter(p => 
-    p.mainGroup?.toLowerCase() === selectedOrg.toLowerCase()
+    p.mainGroup?.toLowerCase().includes(selectedOrg.toLowerCase())
   );
 
   return (
@@ -132,7 +134,7 @@ const Catalog = () => {
           <button
             key={org.id}
             onClick={() => handleOrgChange(org.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm whitespace-nowrap transition-all border ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm whitespace-nowrap transition-all border cursor-pointer ${
               selectedOrg === org.id 
                 ? 'bg-white text-black border-white shadow-lg' 
                 : 'bg-[#18181b] text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-700'
@@ -148,7 +150,7 @@ const Catalog = () => {
       <div className="flex justify-between items-center bg-[#18181b] border border-zinc-800 p-1.5 rounded-xl mb-8 max-w-md">
         <button
           onClick={() => setActiveMode('kit')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
             activeMode === 'kit' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-white'
           }`}
         >
@@ -156,19 +158,17 @@ const Catalog = () => {
         </button>
         <button
           onClick={() => setActiveMode('grid')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
             activeMode === 'grid' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <FiGrid size={14} /> Individual Items ({filteredProducts.length})
+          <FiGrid size={14} /> Catalog Items ({filteredProducts.length})
         </button>
       </div>
 
       {/* 3A. INTERACTIVE KIT BUILDER VIEW */}
       {activeMode === 'kit' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Kit Checklist */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-[#18181b] border border-zinc-800 p-5 rounded-2xl shadow-xl">
               <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-3">
@@ -216,11 +216,9 @@ const Catalog = () => {
             </div>
           </div>
 
-          {/* Kit Summary Card */}
           <div className="bg-[#18181b] border border-zinc-800 p-6 rounded-2xl shadow-xl h-fit space-y-6">
             <h3 className="text-lg font-bold border-b border-zinc-800 pb-3">Kit Configuration</h3>
 
-            {/* Size Selector */}
             <div>
               <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Select Uniform Size</label>
               <div className="flex gap-2">
@@ -228,7 +226,7 @@ const Catalog = () => {
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
                       selectedSize === size
                         ? 'bg-white text-black border-white'
                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
@@ -255,16 +253,15 @@ const Catalog = () => {
 
             <button
               onClick={handleAddKitToCart}
-              className="w-full bg-white text-black font-black py-4 rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 shadow-lg"
+              className="w-full bg-white text-black font-black py-4 rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 shadow-lg cursor-pointer"
             >
               <FiShoppingBag size={18} /> Add Complete Kit to Cart
             </button>
           </div>
-
         </div>
       )}
 
-      {/* 3B. INDIVIDUAL CATALOG GRID VIEW */}
+      {/* 3B. INDIVIDUAL & SET CATALOG GRID VIEW */}
       {activeMode === 'grid' && (
         <>
           {loading ? (
@@ -287,6 +284,12 @@ const Catalog = () => {
                     className="bg-[#18181b] border border-zinc-800 rounded-xl overflow-hidden flex flex-col justify-between hover:border-zinc-700 transition-all cursor-pointer group shadow-md"
                   >
                     <div className="relative aspect-[4/5] bg-zinc-900 overflow-hidden flex items-center justify-center">
+                      {product.subGroup === 'Set' && (
+                        <span className="absolute top-2 left-2 bg-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded shadow z-10 flex items-center gap-1 uppercase">
+                          <FiAward size={10} /> Complete Set
+                        </span>
+                      )}
+
                       {imgUrl ? (
                         <img 
                           src={imgUrl} 

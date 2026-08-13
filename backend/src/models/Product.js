@@ -40,6 +40,29 @@ const productSchema = new mongoose.Schema({
     trim: true 
   },
   
+  // DYNAMIC WEIGHT & PACKAGING DIMENSIONS
+  weight: { 
+    type: Number, 
+    required: true, 
+    default: 0.5, // Default 0.5 kg
+    min: 0.01 
+  },
+  length: { 
+    type: Number, 
+    default: 10, // cm
+    min: 1 
+  },
+  width: { 
+    type: Number, 
+    default: 10, // cm
+    min: 1 
+  },
+  height: { 
+    type: Number, 
+    default: 5, // cm
+    min: 1 
+  },
+
   isPromotional: { type: Boolean, default: false },
 
   // INVENTORY MANAGEMENT

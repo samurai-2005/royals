@@ -1,9 +1,5 @@
-require('dotenv').config(); // 👈 Must be at the top of server.js
-require('./instrument.js');
-
-// 2. Load environment variables IMMEDIATELY so process.env is ready for all imported modules
-const dotenv = require('dotenv');
-dotenv.config();
+require('dotenv').config(); // Load environment variables at the very top[cite: 25]
+require('./instrument.js'); // Sentry instrumentation[cite: 25]
 
 const express = require('express');
 const cors = require('cors');
@@ -18,33 +14,43 @@ const userRoutes = require('./src/routes/userRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const shiprocketRoutes = require('./src/routes/shiprocketRoutes');
 
-// Connect to Database
+// Safely require saleRoutes if Flash Sales Persistence is used
+let saleRoutes;
+try {
+  saleRoutes = require('./src/routes/saleRoutes');
+} catch (err) {
+  console.log('Note: saleRoutes file not present yet, skipping route mount.');
+}
+
+// Connect to Database[cite: 25]
 connectDB();
 
 const app = express();
 
-// Middlewares
+// Middlewares[cite: 25]
 app.use(cors({
   origin: true,
   credentials: true
 }));
 
-app.use(express.json()); // Parses incoming JSON payloads
+app.use(express.json()); // Parses incoming JSON payloads[cite: 25]
 
-// Mount Routes
+// Mount Routes[cite: 25]
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/logistics', shiprocketRoutes); // Bypasses keyword blocks[cite: 25]
 
-// 🚀 FIXED: Changed to '/api/logistics' to bypass Shiprocket webhook keyword blocks
-app.use('/api/logistics', shiprocketRoutes);
+if (saleRoutes) {
+  app.use('/api/sales', saleRoutes);
+}
 
-// Make the uploads folder statically accessible
+// Make the uploads folder statically accessible[cite: 25]
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check endpoints
+// Health check endpoints[cite: 25]
 app.get('/healthz', (req, res) => {
   res.status(200).json({ 
     status: 'Healthy', 
@@ -57,11 +63,10 @@ app.get('/', (req, res) => {
   res.send('The Royal Tailor API is running...');
 });
 
-
-// 3. Sentry Error Handler MUST be registered AFTER all routes and controllers
+// Sentry Error Handler MUST be registered AFTER all routes and controllers[cite: 25]
 Sentry.setupExpressErrorHandler(app);
 
-// 4. Fallthrough Error Handling Middleware
+// Fallthrough Error Handling Middleware[cite: 25]
 app.use((err, req, res, next) => {
   res.status(500).json({
     message: err.message,

@@ -25,9 +25,7 @@ import {
   FiClock,
   FiMapPin,
   FiZap,
-  FiTag,
-  FiCalendar,
-  FiImage
+  FiAward
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -54,39 +52,37 @@ const AdminDashboard = () => {
   const [prodDesc, setProdDesc] = useState('');
   const [prodMainGroup, setProdMainGroup] = useState('School Uniforms');
   const [prodSubGroup, setProdSubGroup] = useState('Shirts');
+  const [prodWeight, setProdWeight] = useState('0.5');
+  const [prodLength, setProdLength] = useState('10');
+  const [prodWidth, setProdWidth] = useState('10');
+  const [prodHeight, setProdHeight] = useState('5');
   const [prodImages, setProdImages] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
+
+  // 🎓 SET CREATOR MODAL STATE
+  const [setModalOpen, setSetModalOpen] = useState(false);
+  const [editingSet, setEditingSet] = useState(null);
+  const [setName, setSetName] = useState('');
+  const [setPrice, setSetPrice] = useState('');
+  const [setCategory, setSetCategory] = useState('School Uniforms');
+  const [setDesc, setSetDesc] = useState('');
+  const [setWeight, setSetWeight] = useState('1.2');
+  const [setLength, setSetLength] = useState('20');
+  const [setWidth, setSetWidth] = useState('15');
+  const [setHeight, setSetHeight] = useState('10');
+  const [selectedSetProductIds, setSelectedSetProductIds] = useState([]);
+  const [savingSet, setSavingSet] = useState(false);
 
   // Inventory Inline Edit State
   const [editingStockId, setEditingStockId] = useState(null);
   const [newStockVal, setNewStockVal] = useState('');
 
-  // ⚡ FLASH SALES & EVENTS STATE (Initialized to empty array)
-  const [salesSubTab, setSalesSubTab] = useState('individual'); // 'individual' or 'events'
-  const [saleEvents, setSaleEvents] = useState([]);
-  const [saleModalOpen, setSaleModalOpen] = useState(false);
-  const [saleTitle, setSaleTitle] = useState('');
-  const [saleBanner, setSaleBanner] = useState('');
-  const [saleDiscount, setSaleDiscount] = useState('');
-  const [saleStartDate, setSaleStartDate] = useState('');
-  const [saleEndDate, setSaleEndDate] = useState('');
-  const [selectedProductIds, setSelectedProductIds] = useState([]);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [savingSale, setSavingSale] = useState(false);
-
   // Individual Product Sale Input Buffer State: { productId: newSalePrice }
   const [individualSaleInputs, setIndividualSaleInputs] = useState({});
 
-  const subGroupOptions = [
-    'Shirts',
-    'T-Shirts',
-    'Pants',
-    'Trousers',
-    'Shoes',
-    'Accessories',
-    'Unassigned'
-  ];
+  const mainCategories = ['School Uniforms', 'NCC', 'Security Guard'];
+  const subGroupOptions = ['Shirts', 'T-Shirts', 'Pants', 'Trousers', 'Shoes', 'Accessories', 'Set', 'Unassigned'];
 
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
@@ -138,15 +134,6 @@ const AdminDashboard = () => {
         setUsersList([]);
       }
 
-      try {
-        const salesRes = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/sales`);
-        if (Array.isArray(salesRes.data)) {
-          setSaleEvents(salesRes.data);
-        }
-      } catch {
-        setSaleEvents([]);
-      }
-
     } catch (err) {
       console.error('Admin data fetch error:', err);
       setDataError(err.response?.data?.message || 'Failed to sync with backend.');
@@ -183,7 +170,7 @@ const AdminDashboard = () => {
     verifyAdmin();
   }, [navigate, getAuthHeader, fetchDashboardData]);
 
-  // 🚀 LOGISTICS: MANUAL PUSH TO SHIPROCKET
+  // 🚀 LOGISTICS ACTIONS
   const handlePushToShiprocket = async (order) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -218,7 +205,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: GENERATE AWB
   const handleGenerateAWB = async (shipmentId, orderId) => {
     if (!shipmentId) return alert('Order must be pushed to Shiprocket first.');
     const config = getAuthHeader();
@@ -251,7 +237,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: PRINT LABEL
   const handleGenerateLabel = async (shipmentId) => {
     if (!shipmentId) return alert('Order must be pushed to Shiprocket first.');
     const config = getAuthHeader();
@@ -277,7 +262,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🚀 LOGISTICS: LIVE TRACK
   const handleTrackShipment = async (awbCode) => {
     if (!awbCode) return alert('No AWB Code assigned to this order yet.');
     const config = getAuthHeader();
@@ -298,7 +282,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // 💰 FINANCE: MARK PAYMENT SETTLED
   const handleMarkPaymentReceived = async (orderId) => {
     const config = getAuthHeader();
     if (!config) return;
@@ -316,16 +299,14 @@ const AdminDashboard = () => {
     }
   };
 
-  // 📸 FILE UPLOAD
-  const handleFileUpload = async (e, target = 'product') => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append('image', file);
 
-    if (target === 'banner') setUploadingBanner(true);
-    else setUploadingImage(true);
+    setUploadingImage(true);
 
     try {
       const config = getAuthHeader() || {};
@@ -337,17 +318,12 @@ const AdminDashboard = () => {
 
       const uploadedPath = typeof data === 'string' ? data : (data.image || data.path || data.url);
       if (uploadedPath) {
-        if (target === 'banner') {
-          setSaleBanner(uploadedPath);
-        } else {
-          setProdImages(prev => [...prev, uploadedPath]);
-        }
+        setProdImages(prev => [...prev, uploadedPath]);
       }
     } catch (err) {
       console.error('File upload error:', err);
       alert(err.response?.data?.message || 'Failed to upload image to server.');
     } finally {
-      setUploadingBanner(false);
       setUploadingImage(false);
     }
   };
@@ -361,6 +337,10 @@ const AdminDashboard = () => {
       setProdDesc(prod.description);
       setProdMainGroup(prod.mainGroup);
       setProdSubGroup(prod.subGroup || 'Shirts');
+      setProdWeight(prod.weight !== undefined ? String(prod.weight) : '0.5');
+      setProdLength(prod.length !== undefined ? String(prod.length) : '10');
+      setProdWidth(prod.width !== undefined ? String(prod.width) : '10');
+      setProdHeight(prod.height !== undefined ? String(prod.height) : '5');
       
       const existingImgs = Array.isArray(prod.images) && prod.images.length > 0 
         ? prod.images 
@@ -373,6 +353,10 @@ const AdminDashboard = () => {
       setProdDesc('');
       setProdMainGroup('School Uniforms');
       setProdSubGroup('Shirts');
+      setProdWeight('0.5');
+      setProdLength('10');
+      setProdWidth('10');
+      setProdHeight('5');
       setProdImages([]);
     }
     setProductModalOpen(true);
@@ -392,7 +376,11 @@ const AdminDashboard = () => {
         mainGroup: prodMainGroup,
         subGroup: prodSubGroup,
         images: prodImages,
-        countInStock: editingProduct ? editingProduct.countInStock : 10
+        countInStock: editingProduct ? editingProduct.countInStock : 10,
+        weight: Number(prodWeight) || 0.5,
+        length: Number(prodLength) || 10,
+        width: Number(prodWidth) || 10,
+        height: Number(prodHeight) || 5
       };
 
       if (editingProduct) {
@@ -458,7 +446,78 @@ const AdminDashboard = () => {
     }
   };
 
-  // 🏷️ INDIVIDUAL PRODUCT DISCOUNT SAVE
+  // 🎓 SET CREATOR HANDLERS
+  const handleOpenSetModal = (setItem = null) => {
+    if (setItem) {
+      setEditingSet(setItem);
+      setSetName(setItem.name);
+      setSetPrice(setItem.price);
+      setSetCategory(setItem.mainGroup);
+      setSetDesc(setItem.description);
+      setSetWeight(String(setItem.weight || '1.2'));
+      setSetLength(String(setItem.length || '20'));
+      setSetWidth(String(setItem.width || '15'));
+      setSetHeight(String(setItem.height || '10'));
+      setSelectedSetProductIds(setItem.images || []);
+    } else {
+      setEditingSet(null);
+      setSetName('');
+      setSetPrice('');
+      setSetCategory('School Uniforms');
+      setSetDesc('');
+      setSetWeight('1.2');
+      setSetLength('20');
+      setSetWidth('15');
+      setSetHeight('10');
+      setSelectedSetProductIds([]);
+    }
+    setSetModalOpen(true);
+  };
+
+  const handleSaveSet = async (e) => {
+    e.preventDefault();
+    const config = getAuthHeader();
+    if (!config) return;
+
+    setSavingSet(true);
+    try {
+      const setImages = products
+        .filter(p => selectedSetProductIds.includes(p._id))
+        .map(p => (p.images && p.images.length > 0 ? p.images[0] : p.image))
+        .filter(Boolean);
+
+      const setPayload = {
+        name: setName,
+        price: Number(setPrice),
+        description: setDesc || `Complete ${setCategory} Uniform Set including all required components.`,
+        mainGroup: setCategory,
+        subGroup: 'Set',
+        images: setImages,
+        weight: Number(setWeight) || 1.2,
+        length: Number(setLength) || 20,
+        width: Number(setWidth) || 15,
+        height: Number(setHeight) || 10,
+        countInStock: editingSet ? editingSet.countInStock : 10
+      };
+
+      if (editingSet) {
+        const { data } = await axios.put(`${import.meta.env.VITE_BACKEND_URL}/api/products/${editingSet._id}`, setPayload, config);
+        setProducts(prev => prev.map(p => p._id === editingSet._id ? data : p));
+      } else {
+        const { data } = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/products`, setPayload, config);
+        setProducts(prev => [data, ...prev]);
+      }
+
+      setSetModalOpen(false);
+      alert(`🎓 Uniform Set "${setName}" saved and published to inventory & directory!`);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save uniform set.');
+    } finally {
+      setSavingSet(false);
+    }
+  };
+
+  // 🏷️ INDIVIDUAL SALE HANDLER
   const handleSaveIndividualSale = async (product) => {
     const saleVal = Number(individualSaleInputs[product._id]);
     const config = getAuthHeader();
@@ -495,98 +554,12 @@ const AdminDashboard = () => {
     }
   };
 
-  // ⚡ SALE EVENT CREATION & PERSISTENT DELETION
-  const handleSaveSaleEvent = async (e) => {
-    e.preventDefault();
-    setSavingSale(true);
-
-    const eventDiscountPct = Number(saleDiscount);
-
-    const newSale = {
-      _id: `sale_${Date.now()}`,
-      title: saleTitle,
-      banner: saleBanner || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=1200&q=80',
-      discountPercentage: eventDiscountPct,
-      startDate: saleStartDate || new Date().toISOString().split('T')[0],
-      endDate: saleEndDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      selectedProductIds,
-      isActive: true
-    };
-
-    try {
-      const config = getAuthHeader();
-      if (config) {
-        await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/sales`, newSale, config);
-
-        for (const pid of selectedProductIds) {
-          const targetProd = products.find(p => p._id === pid);
-          if (targetProd) {
-            const calculatedPrice = Math.round(targetProd.price - (targetProd.price * eventDiscountPct) / 100);
-            await axios.put(
-              `${import.meta.env.VITE_BACKEND_URL}/api/products/${pid}`,
-              { discountPrice: calculatedPrice, discountPercentage: eventDiscountPct },
-              config
-            );
-          }
-        }
-      }
-    } catch {
-      // Local fallback
-    }
-
-    setSaleEvents(prev => [newSale, ...prev]);
-
-    setProducts(prev => prev.map(p => {
-      if (selectedProductIds.includes(p._id)) {
-        const calculatedPrice = Math.round(p.price - (p.price * eventDiscountPct) / 100);
-        return { ...p, discountPrice: calculatedPrice, discountPercentage: eventDiscountPct };
-      }
-      return p;
-    }));
-
-    setSaleModalOpen(false);
-    setSaleTitle('');
-    setSaleBanner('');
-    setSaleDiscount('');
-    setSaleStartDate('');
-    setSaleEndDate('');
-    setSelectedProductIds([]);
-    setSavingSale(false);
-
-    alert(`⚡ Flash Event "${saleTitle}" created successfully!`);
-  };
-
-  const handleToggleSaleStatus = (saleId) => {
-    setSaleEvents(prev => prev.map(s => s._id === saleId ? { ...s, isActive: !s.isActive } : s));
-  };
-
-  // 🗑️ PERMANENT API DELETE FOR SALE EVENTS
-  const handleDeleteSaleEvent = async (saleId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this sale event?')) return;
-    const config = getAuthHeader();
-
-    try {
-      if (config) {
-        await axios.delete(`${import.meta.env.VITE_BACKEND_URL}/api/sales/${saleId}`, config);
-      }
-    } catch (err) {
-      console.warn('Backend sale event deletion note:', err.message);
-    }
-
-    // Immediately purge from state so it cannot re-render
-    setSaleEvents(prev => prev.filter(s => s._id !== saleId));
-  };
-
-  const toggleSelectProductForEvent = (productId) => {
-    setSelectedProductIds(prev =>
-      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
-    );
-  };
-
   const safeOrders = Array.isArray(orders) ? orders : [];
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
   const revenueReceived = safeOrders.filter(o => o.isPaid).reduce((acc, o) => acc + (o.totalPrice || o.itemsPrice || 0), 0);
   const revenuePending = Math.max(0, totalRevenue - revenueReceived);
+
+  const createdSetsList = products.filter(p => p.subGroup === 'Set' || p.isSet);
 
   if (authenticating) {
     return (
@@ -601,9 +574,10 @@ const AdminDashboard = () => {
     { id: 'finance', label: 'Finance', icon: FiDollarSign },
     { id: 'shipment', label: 'Shipment & Logistics', icon: FiTruck },
     { id: 'products', label: `Products (${products.length})`, icon: FiPackage },
+    { id: 'sets', label: `Set Creator (${createdSetsList.length})`, icon: FiAward },
     { id: 'inventory', label: 'Inventory', icon: FiLayers },
     { id: 'orders', label: `Orders (${safeOrders.length})`, icon: FiFileText },
-    { id: 'sales', label: `Flash Sales (${saleEvents.length})`, icon: FiZap },
+    { id: 'sales', label: 'Flash Sales', icon: FiZap },
     { id: 'users', label: `Users (${usersList.length})`, icon: FiUsers },
   ];
 
@@ -633,7 +607,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-2 border-t border-zinc-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 pt-2 border-t border-zinc-800/80">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -875,7 +849,7 @@ const AdminDashboard = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
             <div>
               <h2 className="text-base font-black text-white uppercase tracking-wide">Catalog Product Directory</h2>
-              <p className="text-xs text-zinc-400">List new uniforms or modify names, prices, pictures, sections, and subsections.</p>
+              <p className="text-xs text-zinc-400">List new uniforms or modify names, prices, weight, dimensions, and categories.</p>
             </div>
 
             <button
@@ -894,6 +868,7 @@ const AdminDashboard = () => {
                   <th className="p-3.5">Product Name</th>
                   <th className="p-3.5">Main Section</th>
                   <th className="p-3.5">Sub Section</th>
+                  <th className="p-3.5">Weight / Specs</th>
                   <th className="p-3.5">Price</th>
                   <th className="p-3.5 text-right">Actions</th>
                 </tr>
@@ -913,9 +888,12 @@ const AdminDashboard = () => {
                           )}
                         </div>
                       </td>
-                      <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{p.name}</td>
+                      <td className="p-3.5 font-bold text-white max-w-[180px] truncate">{p.name}</td>
                       <td className="p-3.5 text-zinc-400">{p.mainGroup}</td>
                       <td className="p-3.5 text-zinc-500">{p.subGroup || 'Unassigned'}</td>
+                      <td className="p-3.5 font-mono text-[11px] text-zinc-400">
+                        <span className="text-amber-400 font-bold">{p.weight || 0.5} kg</span>
+                      </td>
                       <td className="p-3.5 font-bold text-emerald-400">Rs {p.price}</td>
                       <td className="p-3.5 text-right space-x-2">
                         <button
@@ -942,13 +920,97 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 📊 4. INVENTORY SECTION */}
+      {/* 🎓 4. SET CREATOR SECTION */}
+      {activeTab === 'sets' && (
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+            <div>
+              <h2 className="text-base font-black text-white uppercase tracking-wide">Uniform Set Creator</h2>
+              <p className="text-xs text-zinc-400">
+                Assemble complete dress kits. Created sets publish live to Inventory, Category pages, and the Uniform Directory.
+              </p>
+            </div>
+
+            <button
+              onClick={() => handleOpenSetModal()}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+            >
+              <FiPlus size={16} /> Create Uniform Set
+            </button>
+          </div>
+
+          {createdSetsList.length === 0 ? (
+            <div className="p-12 border-2 border-dashed border-zinc-800 rounded-2xl text-center space-y-3">
+              <FiAward size={36} className="mx-auto text-zinc-600" />
+              <p className="text-sm font-semibold text-zinc-400">No uniform sets created yet.</p>
+              <button
+                onClick={() => handleOpenSetModal()}
+                className="text-xs text-amber-400 hover:underline font-bold cursor-pointer"
+              >
+                + Assemble your first uniform set
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {createdSetsList.map((setItem) => {
+                const coverImg = setItem.images?.[0] || setItem.image;
+
+                return (
+                  <div key={setItem._id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3 flex flex-col justify-between hover:border-zinc-700 transition-all">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {coverImg ? (
+                            <img src={getImageUrl(coverImg)} alt={setItem.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <FiAward className="text-amber-500" size={20} />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                            {setItem.mainGroup} • SET
+                          </span>
+                          <h3 className="font-bold text-sm text-white truncate">{setItem.name}</h3>
+                          <p className="text-xs font-black text-emerald-400">Rs {setItem.price}</p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-zinc-400 line-clamp-2">{setItem.description}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80 text-xs">
+                      <span className="text-zinc-500 font-mono">Stock: <strong>{setItem.countInStock}</strong></span>
+                      <div className="space-x-2">
+                        <button
+                          onClick={() => handleOpenSetModal(setItem)}
+                          className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg font-bold cursor-pointer"
+                        >
+                          Edit Set
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(setItem._id)}
+                          className="p-1.5 bg-red-950/80 text-red-400 rounded-lg hover:bg-red-900 cursor-pointer"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 📊 5. INVENTORY SECTION */}
       {activeTab === 'inventory' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
           <div className="border-b border-zinc-800 pb-4">
             <h2 className="text-base font-black text-white uppercase tracking-wide">Live Inventory Calculator</h2>
             <p className="text-xs text-zinc-400">
-              Manage stock counts. New products added in Product Details automatically initialize with a base stock count of 10.
+              Manage stock counts for both individual components and complete uniform sets.
             </p>
           </div>
 
@@ -956,8 +1018,8 @@ const AdminDashboard = () => {
             <table className="w-full text-left text-xs text-zinc-300">
               <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
                 <tr>
-                  <th className="p-3.5">Product Name</th>
-                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Product / Set Name</th>
+                  <th className="p-3.5">Type & Section</th>
                   <th className="p-3.5">Available Quantity</th>
                   <th className="p-3.5">Stock Status</th>
                   <th className="p-3.5 text-right">Update Quantity</th>
@@ -970,8 +1032,10 @@ const AdminDashboard = () => {
 
                   return (
                     <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
-                      <td className="p-3.5 font-bold text-white">{p.name}</td>
-                      <td className="p-3.5 text-zinc-400">{p.mainGroup}</td>
+                      <td className="p-3.5 font-bold text-white flex items-center gap-2">
+                        {p.subGroup === 'Set' && <FiAward className="text-amber-400 flex-shrink-0" />} {p.name}
+                      </td>
+                      <td className="p-3.5 text-zinc-400">{p.mainGroup} ({p.subGroup})</td>
                       <td className="p-3.5">
                         {editingStockId === p._id ? (
                           <input
@@ -1016,7 +1080,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 📑 5. ORDERS SECTION */}
+      {/* 📑 6. ORDERS SECTION */}
       {activeTab === 'orders' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
           <div className="border-b border-zinc-800 pb-4">
@@ -1067,174 +1131,76 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ⚡ 6. FLASH SALES & EVENTS SECTION */}
+      {/* ⚡ 7. FLASH SALES SECTION */}
       {activeTab === 'sales' && (
-        <div className="space-y-6 animate-fade-in">
-          <div className="flex items-center bg-[#18181b] border border-zinc-800 p-1.5 rounded-2xl w-fit gap-2">
-            <button
-              onClick={() => setSalesSubTab('individual')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                salesSubTab === 'individual'
-                  ? 'bg-amber-500 text-black font-black shadow-lg'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <FiTag size={14} /> Individual Item Discounts
-            </button>
-
-            <button
-              onClick={() => setSalesSubTab('events')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                salesSubTab === 'events'
-                  ? 'bg-amber-500 text-black font-black shadow-lg'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <FiZap size={14} /> Sale Events & Campaigns
-            </button>
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
+          <div>
+            <h2 className="text-base font-black text-white uppercase tracking-wide">Individual Item Price Markdown</h2>
+            <p className="text-xs text-zinc-400">
+              Enter a new sale price for any catalog item. The discount percentage will auto-calculate and display across the store.
+            </p>
           </div>
 
-          {/* MODE 1: INDIVIDUAL PRODUCT DISCOUNT MANAGEMENT */}
-          {salesSubTab === 'individual' && (
-            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
-              <div>
-                <h2 className="text-base font-black text-white uppercase tracking-wide">Individual Item Price Markdown</h2>
-                <p className="text-xs text-zinc-400">
-                  Enter a new sale price for any catalog item. The discount percentage will auto-calculate and display across the store.
-                </p>
-              </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-zinc-300">
+              <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
+                <tr>
+                  <th className="p-3.5">Product Name</th>
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Original Price</th>
+                  <th className="p-3.5">New Sale Price (Rs)</th>
+                  <th className="p-3.5">Calculated Discount</th>
+                  <th className="p-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/80">
+                {products.map((p) => {
+                  const inputVal = individualSaleInputs[p._id] !== undefined ? individualSaleInputs[p._id] : (p.discountPrice || '');
+                  const numVal = Number(inputVal);
+                  const hasSale = numVal > 0 && numVal < p.price;
+                  const calculatedPct = hasSale ? Math.round(((p.price - numVal) / p.price) * 100) : 0;
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-zinc-300">
-                  <thead className="bg-zinc-900 text-zinc-500 uppercase tracking-wider font-black text-[10px]">
-                    <tr>
-                      <th className="p-3.5">Product Name</th>
-                      <th className="p-3.5">Category</th>
-                      <th className="p-3.5">Original Price</th>
-                      <th className="p-3.5">New Sale Price (Rs)</th>
-                      <th className="p-3.5">Calculated Discount</th>
-                      <th className="p-3.5 text-right">Action</th>
+                  return (
+                    <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
+                      <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{p.name}</td>
+                      <td className="p-3.5 text-zinc-400">{p.mainGroup} / {p.subGroup}</td>
+                      <td className="p-3.5 font-mono text-zinc-300">Rs {p.price}</td>
+                      <td className="p-3.5">
+                        <input
+                          type="number"
+                          placeholder={p.price}
+                          value={inputVal}
+                          onChange={(e) => setIndividualSaleInputs({ ...individualSaleInputs, [p._id]: e.target.value })}
+                          className="w-28 bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none"
+                        />
+                      </td>
+                      <td className="p-3.5">
+                        {hasSale ? (
+                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">
+                            {calculatedPct}% OFF
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600 italic">No Discount</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-right">
+                        <button
+                          onClick={() => handleSaveIndividualSale(p)}
+                          className="bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Update Price
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/80">
-                    {products.map((p) => {
-                      const inputVal = individualSaleInputs[p._id] !== undefined ? individualSaleInputs[p._id] : (p.discountPrice || '');
-                      const numVal = Number(inputVal);
-                      const hasSale = numVal > 0 && numVal < p.price;
-                      const calculatedPct = hasSale ? Math.round(((p.price - numVal) / p.price) * 100) : 0;
-
-                      return (
-                        <tr key={p._id} className="hover:bg-zinc-900/50 transition-colors">
-                          <td className="p-3.5 font-bold text-white max-w-[200px] truncate">{p.name}</td>
-                          <td className="p-3.5 text-zinc-400">{p.mainGroup} / {p.subGroup}</td>
-                          <td className="p-3.5 font-mono text-zinc-300">Rs {p.price}</td>
-                          <td className="p-3.5">
-                            <input
-                              type="number"
-                              placeholder={p.price}
-                              value={inputVal}
-                              onChange={(e) => setIndividualSaleInputs({ ...individualSaleInputs, [p._id]: e.target.value })}
-                              className="w-28 bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none"
-                            />
-                          </td>
-                          <td className="p-3.5">
-                            {hasSale ? (
-                              <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">
-                                {calculatedPct}% OFF
-                              </span>
-                            ) : (
-                              <span className="text-zinc-600 italic">No Discount</span>
-                            )}
-                          </td>
-                          <td className="p-3.5 text-right">
-                            <button
-                              onClick={() => handleSaveIndividualSale(p)}
-                              className="bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
-                            >
-                              Update Price
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* MODE 2: SALE EVENTS MANAGER */}
-          {salesSubTab === 'events' && (
-            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
-                <div>
-                  <h2 className="text-base font-black text-white uppercase tracking-wide">Promotional Campaign Events</h2>
-                  <p className="text-xs text-zinc-400">Organize featured sale events with custom banners and select target items.</p>
-                </div>
-
-                <button
-                  onClick={() => setSaleModalOpen(true)}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <FiPlus size={16} /> Create Sale Event
-                </button>
-              </div>
-
-              {saleEvents.length === 0 ? (
-                <div className="p-8 border-2 border-dashed border-zinc-800 rounded-xl text-center text-zinc-500 text-xs">
-                  No active sale events right now. Click "Create Sale Event" to start a campaign.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {saleEvents.map((s) => (
-                    <div key={s._id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden space-y-3 relative group">
-                      <div className="h-32 bg-zinc-950 relative overflow-hidden">
-                        <img src={s.banner} alt={s.title} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-                        <span className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase shadow">
-                          {s.discountPercentage}% EVENT DISCOUNT
-                        </span>
-                      </div>
-
-                      <div className="p-4 space-y-2">
-                        <h3 className="text-base font-bold text-white flex items-center gap-2">
-                          <FiZap className="text-amber-400" /> {s.title}
-                        </h3>
-                        <p className="text-xs text-zinc-400 flex items-center gap-1 font-mono">
-                          <FiCalendar size={12} /> {s.startDate} to {s.endDate}
-                        </p>
-                        <p className="text-xs text-zinc-500 font-semibold">
-                          {s.selectedProductIds?.length || 0} Target Products Linked
-                        </p>
-
-                        <div className="flex justify-between items-center pt-2 border-t border-zinc-800">
-                          <button
-                            onClick={() => handleToggleSaleStatus(s._id)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer ${
-                              s.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'
-                            }`}
-                          >
-                            {s.isActive ? 'Active Event' : 'Paused'}
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteSaleEvent(s._id)}
-                            className="p-1.5 bg-red-950/80 hover:bg-red-900 text-red-400 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <FiTrash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* 👥 7. USERS SECTION */}
+      {/* 👥 8. USERS SECTION */}
       {activeTab === 'users' && (
         <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fade-in">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
@@ -1245,7 +1211,7 @@ const AdminDashboard = () => {
             
             <button
               onClick={fetchDashboardData}
-              className="text-xs text-amber-400 font-bold flex items-center gap-1 hover:text-amber-300 transition-colors"
+              className="text-xs text-amber-400 font-bold flex items-center gap-1 hover:text-amber-300 transition-colors cursor-pointer"
             >
               <FiRefreshCw className={loadingData ? 'animate-spin' : ''} size={13} /> Sync Users
             </button>
@@ -1290,7 +1256,7 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* 🔍 VISUAL TRACKING TIMELINE MODAL */}
+      {/* VISUAL TRACKING TIMELINE MODAL */}
       {trackingModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 relative">
@@ -1298,7 +1264,7 @@ const AdminDashboard = () => {
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <FiTruck className="text-amber-400" /> Live Shiprocket Tracking (AWB: {trackingModalData.awb})
               </h3>
-              <button onClick={() => setTrackingModalData(null)} className="text-zinc-400 hover:text-white">
+              <button onClick={() => setTrackingModalData(null)} className="text-zinc-400 hover:text-white cursor-pointer">
                 <FiX size={18} />
               </button>
             </div>
@@ -1326,123 +1292,129 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            <button onClick={() => setTrackingModalData(null)} className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs">
+            <button onClick={() => setTrackingModalData(null)} className="w-full bg-white text-black font-bold py-2.5 rounded-xl text-xs cursor-pointer">
               Close Window
             </button>
           </div>
         </div>
       )}
 
-      {/* ⚡ MODAL: CREATE FLASH SALE EVENT WITH PRODUCT SELECTOR */}
-      {saleModalOpen && (
+      {/* 🎓 MODAL: UNIFORM SET CREATOR */}
+      {setModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto scrollbar-hide">
-            <button onClick={() => setSaleModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
+            <button onClick={() => setSetModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white cursor-pointer">
               <FiX size={20} />
             </button>
 
             <h3 className="text-lg font-black text-white flex items-center gap-2">
-              <FiZap className="text-amber-400" /> Launch New Flash Sale Event
+              <FiAward className="text-amber-400" /> {editingSet ? 'Edit Uniform Set' : 'Assemble New Uniform Set'}
             </h3>
 
-            <form onSubmit={handleSaveSaleEvent} className="space-y-4">
+            <form onSubmit={handleSaveSet} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Event Name</label>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Uniform Category</label>
+                <select
+                  value={setCategory}
+                  onChange={(e) => {
+                    setSetCategory(e.target.value);
+                    setSelectedSetProductIds([]);
+                  }}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  {mainCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Set Name</label>
                 <input
                   type="text"
                   required
-                  value={saleTitle}
-                  onChange={(e) => setSaleTitle(e.target.value)}
-                  placeholder="e.g. Independence Day Uniform Festival"
+                  value={setName}
+                  onChange={(e) => setSetName(e.target.value)}
+                  placeholder="e.g. Complete NCC Cadets Uniform Bundle"
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Event Banner Picture</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={saleBanner}
-                    onChange={(e) => setSaleBanner(e.target.value)}
-                    placeholder="Image URL or upload banner"
-                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
-                  <label className="bg-zinc-800 hover:bg-zinc-700 text-amber-400 px-3.5 py-3 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1">
-                    {uploadingBanner ? <FiRefreshCw className="animate-spin" size={14} /> : <FiImage size={14} />}
-                    <span>Upload</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner')} disabled={uploadingBanner} className="hidden" />
-                  </label>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Discount Rate (%)</label>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Set Price (Rs)</label>
                   <input
                     type="number"
                     required
-                    min="1"
-                    max="90"
-                    value={saleDiscount}
-                    onChange={(e) => setSaleDiscount(e.target.value)}
-                    placeholder="20"
+                    value={setPrice}
+                    onChange={(e) => setSetPrice(e.target.value)}
+                    placeholder="2450"
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Start Date</label>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Package Weight (kg)</label>
                   <input
-                    type="date"
+                    type="number"
+                    step="0.01"
                     required
-                    value={saleStartDate}
-                    onChange={(e) => setSaleStartDate(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">End Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={saleEndDate}
-                    onChange={(e) => setSaleEndDate(e.target.value)}
+                    value={setWeight}
+                    onChange={(e) => setSetWeight(e.target.value)}
+                    placeholder="1.2"
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
 
+              {/* DYNAMICALLY FILTERED INVENTORY SELECTION */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                  Select Participating Products ({selectedProductIds.length} Selected)
+                  Select {setCategory} Components ({selectedSetProductIds.length} Linked)
                 </label>
+
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
-                  {products.map((p) => {
-                    const isSelected = selectedProductIds.includes(p._id);
-                    return (
-                      <div
-                        key={p._id}
-                        onClick={() => toggleSelectProductForEvent(p._id)}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer text-xs ${
-                          isSelected ? 'bg-amber-950/60 border-amber-500/80 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <span className="font-bold">{p.name} ({p.mainGroup})</span>
-                        <span className="font-mono">Rs {p.price}</span>
-                      </div>
-                    );
-                  })}
+                  {products
+                    .filter(p => p.mainGroup.toLowerCase().includes(setCategory.toLowerCase()) && p.subGroup !== 'Set')
+                    .map((p) => {
+                      const isSelected = selectedSetProductIds.includes(p._id);
+                      return (
+                        <div
+                          key={p._id}
+                          onClick={() => {
+                            setSelectedSetProductIds(prev =>
+                              prev.includes(p._id) ? prev.filter(id => id !== p._id) : [...prev, p._id]
+                            );
+                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer text-xs ${
+                            isSelected ? 'bg-amber-950/60 border-amber-500/80 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          }`}
+                        >
+                          <span className="font-bold">• {p.name} ({p.subGroup})</span>
+                          <span className="font-mono text-zinc-400">Rs {p.price}</span>
+                        </div>
+                      );
+                    })}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">Description</label>
+                <textarea
+                  rows="2"
+                  value={setDesc}
+                  onChange={(e) => setSetDesc(e.target.value)}
+                  placeholder="Complete uniform set containing shirt, trousers, belt, cap, and boots..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                />
               </div>
 
               <button
                 type="submit"
-                disabled={savingSale}
+                disabled={savingSet}
                 className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2 disabled:opacity-50"
               >
-                {savingSale ? 'Launching Event...' : 'Launch Sale Event'}
+                {savingSet ? 'Publishing Uniform Set...' : 'Save & Publish Uniform Set'}
               </button>
             </form>
           </div>
@@ -1453,7 +1425,7 @@ const AdminDashboard = () => {
       {productModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#18181b] border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto scrollbar-hide">
-            <button onClick={() => setProductModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
+            <button onClick={() => setProductModalOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-white cursor-pointer">
               <FiX size={20} />
             </button>
 
@@ -1490,11 +1462,11 @@ const AdminDashboard = () => {
                   <select
                     value={prodMainGroup}
                     onChange={(e) => setProdMainGroup(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500"
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value="School Uniforms">School Uniforms</option>
-                    <option value="NCC">NCC Uniforms</option>
-                    <option value="Security Guard">Security Guard</option>
+                    {mainCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                     <option value="Accessories">Accessories</option>
                   </select>
                 </div>
@@ -1508,11 +1480,71 @@ const AdminDashboard = () => {
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-amber-500 cursor-pointer"
                 >
                   {subGroupOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
+                    <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* WEIGHT & DIMENSIONS */}
+              <div className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-3">
+                <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FiPackage size={14} /> Shiprocket Weight & Box Specs
+                </label>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Weight (kg)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      min="0.01"
+                      value={prodWeight}
+                      onChange={(e) => setProdWeight(e.target.value)}
+                      placeholder="0.5"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Length (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={prodLength}
+                      onChange={(e) => setProdLength(e.target.value)}
+                      placeholder="10"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Width (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={prodWidth}
+                      onChange={(e) => setProdWidth(e.target.value)}
+                      placeholder="10"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">Height (cm)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={prodHeight}
+                      onChange={(e) => setProdHeight(e.target.value)}
+                      placeholder="5"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1558,13 +1590,12 @@ const AdminDashboard = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleFileUpload(e, 'product')}
+                      onChange={handleFileUpload}
                       disabled={uploadingImage}
                       className="hidden"
                     />
                   </label>
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">Upload product pictures. The first image will be used as the primary card cover.</p>
               </div>
 
               <button

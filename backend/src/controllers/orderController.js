@@ -56,7 +56,7 @@ const addOrderItems = async (req, res) => {
       orderItems,
       shippingAddress: {
         ...shippingAddress,
-        phone: user.phone || shippingAddress.phone // Attaches verified mobile number
+        phone: user.phone || shippingAddress.phone
       },
       paymentMethod,
       itemsPrice,

@@ -29,7 +29,6 @@ export const CartProvider = ({ children }) => {
   }, [cartItems]);
 
   const addToCart = (product, sizeArg, qtyArg) => {
-    // 💡 Smart parameter resolution: Works with object payloads or positional arguments
     const targetSize =
       (typeof sizeArg === 'string' && sizeArg) ||
       product.size ||
@@ -78,13 +77,19 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
   };
 
-  // 🎯 FIX: Total now correctly sums discounted price x quantity
+  // Total sums discounted price x quantity
   const cartTotal = cartItems.reduce(
     (acc, item) => acc + getEffectivePrice(item) * item.qty,
     0
   );
   
   const cartCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
+
+  // 📦 DYNAMIC WEIGHT CALCULATOR: Sums (item.weight x qty) across cart
+  const cartWeight = cartItems.reduce(
+    (acc, item) => acc + (Number(item.weight) || 0.5) * item.qty,
+    0
+  );
 
   return (
     <CartContext.Provider
@@ -96,6 +101,7 @@ export const CartProvider = ({ children }) => {
         clearCart,
         cartTotal,
         cartCount,
+        cartWeight,
       }}
     >
       {children}
